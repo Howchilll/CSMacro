@@ -1,0 +1,19 @@
+# 构建产物
+bin/
+obj/
+
+# CSMacro dump 目录（排查用的展开副本）
+csmacro-dump/
+
+# 测试结果
+TestResults/
+
+# IDE
+.vs/
+.idea/
+.vscode/
+*.user
+*.suo
+
+# 系统
+.DS_Store

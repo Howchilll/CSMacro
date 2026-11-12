@@ -1,0 +1,15 @@
+<Solution>
+  <Folder Name="/samples/">
+    <Project Path="samples/Demo.App/Demo.App.csproj" />
+    <Project Path="samples/Demo.Macros/Demo.Macros.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/CSMacro.Abstractions/CSMacro.Abstractions.csproj" />
+    <Project Path="src/CSMacro.Cli/CSMacro.Cli.csproj" />
+    <Project Path="src/CSMacro.Engine/CSMacro.Engine.csproj" />
+    <Project Path="src/CSMacro.Testing/CSMacro.Testing.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Demo.Macros.Tests/Demo.Macros.Tests.csproj" />
+  </Folder>
+</Solution>

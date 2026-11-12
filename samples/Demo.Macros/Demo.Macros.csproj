@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- 宏库：普通的类库，引用 CSMacro.Abstractions 即可。 -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/CSMacro.Abstractions/CSMacro.Abstractions.csproj" />
+  </ItemGroup>
+
+</Project>

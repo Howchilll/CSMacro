@@ -1,0 +1,79 @@
+<Project>
+
+  <!--
+    CSMacro 的 MSBuild 接入。
+    思路：截流编译器拿到的源码清单，而不是修改源文件。
+      1. CoreCompile 之前，把 @(Compile) 和引用交给 csmacro。
+      2. csmacro 把含宏的文件展开到 obj/…/csmacro/src/（首行 #line 指回原文件）。
+      3. 把这些原文件从 @(Compile) 里换成展开后的副本，并加入引擎生成的辅助脚本（启动代码）。
+       编译器只看到展开结果。
+    可选属性：
+      CSMacroStartupAttribute  启动辅助脚本入口上的特性（默认 ModuleInitializer）
+      CSMacroVerify=false      不对宏生成的代码做编译检查
+      CSMacroDump=true         另外把展开结果写到 dump 目录，用来排查问题（不影响真正的编译）
+      CSMacroDumpDir=<目录>    dump 目录，默认是项目下的 csmacro-dump（相对项目目录），自动排除在编译之外
+      CSMacroDumpFiles=<a b>   只写出这些文件（相对路径或文件名，支持 * 和 **）；设置后自动开启 dump
+      CSMacroDumpMacros=<a b>  dump 时只展开这些宏，其余保持原样；设置后自动开启 dump
+    IDE 的 design-time build 跳过这一步，所以 IDE 看到的是原文件：宏就是一个普通方法调用。
+  -->
+
+  <PropertyGroup>
+    <CSMacroEnabled Condition="'$(CSMacroEnabled)' == ''">true</CSMacroEnabled>
+    <CSMacroCliPath Condition="'$(CSMacroCliPath)' == ''">$(MSBuildThisFileDirectory)../src/CSMacro.Cli/bin/$(Configuration)/net10.0/CSMacro.Cli.dll</CSMacroCliPath>
+    <CSMacroDotnet Condition="'$(CSMacroDotnet)' == '' and '$(DOTNET_HOST_PATH)' != ''">$(DOTNET_HOST_PATH)</CSMacroDotnet>
+    <CSMacroDotnet Condition="'$(CSMacroDotnet)' == ''">dotnet</CSMacroDotnet>
+
+    <!-- dump：设置了文件/宏筛选也视为开启 -->
+    <CSMacroDump Condition="'$(CSMacroDump)' == '' and ('$(CSMacroDumpFiles)' != '' or '$(CSMacroDumpMacros)' != '')">true</CSMacroDump>
+    <CSMacroDumpDir Condition="'$(CSMacroDumpDir)' == ''">csmacro-dump</CSMacroDumpDir>
+    <!-- dump 目录里是展开后的副本，绝不能再被当作源码编译（命令行构建和 IDE 都排除） -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);$(CSMacroDumpDir)/**</DefaultItemExcludes>
+  </PropertyGroup>
+
+  <Target Name="CSMacroExpand"
+          BeforeTargets="CoreCompile"
+          DependsOnTargets="ResolveAssemblyReferences"
+          Condition="'$(CSMacroEnabled)' == 'true' and '$(DesignTimeBuild)' != 'true'">
+
+    <PropertyGroup>
+      <_CSMacroDir>$(ProjectDir)$(IntermediateOutputPath)csmacro/</_CSMacroDir>
+      <_CSMacroRsp>$(_CSMacroDir)args.rsp</_CSMacroRsp>
+      <_CSMacroOriginalsFile>$(_CSMacroDir)originals.txt</_CSMacroOriginalsFile>
+      <_CSMacroExpandedFile>$(_CSMacroDir)expanded.txt</_CSMacroExpandedFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <_CSMacroArg Include="--out:$(_CSMacroDir)src" />
+      <_CSMacroArg Include="--originals:$(_CSMacroOriginalsFile)" />
+      <_CSMacroArg Include="--expanded:$(_CSMacroExpandedFile)" />
+      <_CSMacroArg Include="--langversion:$(LangVersion)" />
+      <_CSMacroArg Include="--nullable:$(Nullable)" />
+      <_CSMacroArg Include="-d:$([MSBuild]::Escape($(DefineConstants)))" />
+      <_CSMacroArg Include="--startup-attribute:$(CSMacroStartupAttribute)" Condition="'$(CSMacroStartupAttribute)' != ''" />
+      <_CSMacroArg Include="--no-verify" Condition="'$(CSMacroVerify)' == 'false'" />
+      <_CSMacroArg Include="--dump:$(CSMacroDumpDir)" Condition="'$(CSMacroDump)' == 'true'" />
+      <_CSMacroArg Include="--dump-files:$([MSBuild]::Escape($(CSMacroDumpFiles)))" Condition="'$(CSMacroDumpFiles)' != ''" />
+      <_CSMacroArg Include="--dump-macros:$([MSBuild]::Escape($(CSMacroDumpMacros)))" Condition="'$(CSMacroDumpMacros)' != ''" />
+      <_CSMacroArg Include="@(Compile->'-s:%(Identity)')" />
+      <_CSMacroArg Include="@(ReferencePath->'-r:%(FullPath)')" />
+    </ItemGroup>
+
+    <MakeDir Directories="$(_CSMacroDir)" />
+    <WriteLinesToFile File="$(_CSMacroRsp)" Lines="@(_CSMacroArg)" Overwrite="true" WriteOnlyWhenDifferent="true" />
+
+    <Exec Command="&quot;$(CSMacroDotnet)&quot; &quot;$(CSMacroCliPath)&quot; &quot;@$(_CSMacroRsp)&quot;" />
+
+    <ReadLinesFromFile File="$(_CSMacroOriginalsFile)">
+      <Output TaskParameter="Lines" ItemName="_CSMacroOriginal" />
+    </ReadLinesFromFile>
+    <ReadLinesFromFile File="$(_CSMacroExpandedFile)">
+      <Output TaskParameter="Lines" ItemName="_CSMacroExpanded" />
+    </ReadLinesFromFile>
+
+    <ItemGroup>
+      <Compile Remove="@(_CSMacroOriginal)" />
+      <Compile Include="@(_CSMacroExpanded)" />
+    </ItemGroup>
+  </Target>
+
+</Project>

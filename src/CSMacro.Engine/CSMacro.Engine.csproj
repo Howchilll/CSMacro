@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- 展开引擎：纯 Roslyn，不关心宿主。netstandard2.0 方便以后直接搬进 Unity Editor。 -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../CSMacro.Abstractions/CSMacro.Abstractions.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    给宏作者用的测试工具：在测试进程里直接展开一段源码，断言展开结果、诊断，或者编译运行后测行为。
+    不依赖任何测试框架，断言失败抛 MacroTestException。
+  -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../CSMacro.Engine/CSMacro.Engine.csproj" />
+  </ItemGroup>
+
+</Project>
