@@ -3,6 +3,10 @@
     <Project Path="samples/Demo.App/Demo.App.csproj" />
     <Project Path="samples/Demo.Macros/Demo.Macros.csproj" />
   </Folder>
+  <Folder Name="/samples/Showcase/">
+    <Project Path="samples/Showcase/Showcase.App/Showcase.App.csproj" />
+    <Project Path="samples/Showcase/Showcase.Macros/Showcase.Macros.csproj" />
+  </Folder>
   <Folder Name="/src/">
     <Project Path="src/CSMacro.Abstractions/CSMacro.Abstractions.csproj" />
     <Project Path="src/CSMacro.Cli/CSMacro.Cli.csproj" />

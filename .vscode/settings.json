@@ -1,0 +1,24 @@
+{
+  // 隐藏开发者不需要关注的东西：构建产物、缓存、系统文件。
+  // csmacro-dump/ 故意不隐藏：排查展开问题时要看它。
+  "files.exclude": {
+    "**/bin": true,
+    "**/obj": true,
+    "**/TestResults": true,
+    "**/.csmacro-dump": true,
+    "**/.DS_Store": true,
+    "**/.git": true
+  },
+  // 搜索时也跳过这些，另外跳过 dump 目录（里面是展开后的副本，会让搜索结果重复）
+  "search.exclude": {
+    "**/bin": true,
+    "**/obj": true,
+    "**/TestResults": true,
+    "**/csmacro-dump": true
+  },
+  "files.watcherExclude": {
+    "**/bin/**": true,
+    "**/obj/**": true
+  },
+  "dotnet.defaultSolution": "CSMacro.slnx"
+}

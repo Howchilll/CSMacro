@@ -378,8 +378,9 @@ namespace CSMacro.Engine
             source = source.Substring(0, Math.Min(source.Length, source.IndexOf('\n') is var nl && nl >= 0 ? nl : source.Length)).Trim();
             foreach (var f in context.ProducedFragments.Concat(context.ProducedStartup))
             {
-                var kind = f.Channel == "startup" && context.ProducedStartup.Contains(f) ? "Startup" : "Fragment:" + f.Channel;
-                var code = ToSingleLine(f.Code, (CSharpParseOptions)tree.Options, out _) ?? f.Code;
+                var kind = context.ProducedStartup.Contains(f) ? "Startup" : "Fragment:" + f.Channel;
+                // 启动代码是 C#，按展开结果显示；片段内容是自由文本（不一定是 C#），原样显示
+                var code = kind == "Startup" ? ToSingleLine(f.Code, (CSharpParseOptions)tree.Options, out _) ?? f.Code : f.Code;
                 records.Add(new MacroExpansion(tree.FilePath, context.Line, "[@" + name + "]", kind, source, code,
                     kind == "Startup" ? Format(code, MacroSite.Statement) : code));
             }
