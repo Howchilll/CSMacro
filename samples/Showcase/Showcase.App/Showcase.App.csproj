@@ -8,7 +8,6 @@
 
   <ItemGroup>
     <ProjectReference Include="../Showcase.Macros/Showcase.Macros.csproj" />
-    <ProjectReference Include="../../../src/CSMacro.Cli/CSMacro.Cli.csproj" ReferenceOutputAssembly="false" />
   </ItemGroup>
 
   <Import Project="../../../build/CSMacro.targets" />

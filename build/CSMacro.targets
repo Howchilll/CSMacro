@@ -14,11 +14,16 @@
       CSMacroDumpDir=<目录>    dump 目录，默认是项目下的 csmacro-dump（相对项目目录），自动排除在编译之外
       CSMacroDumpFiles=<a b>   只写出这些文件（相对路径或文件名，支持 * 和 **）；设置后自动开启 dump
       CSMacroDumpMacros=<a b>  dump 时只展开这些宏，其余保持原样；设置后自动开启 dump
+      CSMacroRuntimeCleanup=false  不做运行时清理（默认会把运行时用不到的宏程序集从引用和输出中移除）
+    展开工具（CSMacro.Cli）由这里自动构建，使用方不需要引用它。
     IDE 的 design-time build 跳过这一步，所以 IDE 看到的是原文件：宏就是一个普通方法调用。
   -->
 
   <PropertyGroup>
     <CSMacroEnabled Condition="'$(CSMacroEnabled)' == ''">true</CSMacroEnabled>
+    <CSMacroRuntimeCleanup Condition="'$(CSMacroRuntimeCleanup)' == ''">true</CSMacroRuntimeCleanup>
+    <_CSMacroCliProject>$(MSBuildThisFileDirectory)../src/CSMacro.Cli/CSMacro.Cli.csproj</_CSMacroCliProject>
+    <_CSMacroBuildCli Condition="'$(CSMacroCliPath)' == ''">true</_CSMacroBuildCli>
     <CSMacroCliPath Condition="'$(CSMacroCliPath)' == ''">$(MSBuildThisFileDirectory)../src/CSMacro.Cli/bin/$(Configuration)/net10.0/CSMacro.Cli.dll</CSMacroCliPath>
     <CSMacroDotnet Condition="'$(CSMacroDotnet)' == '' and '$(DOTNET_HOST_PATH)' != ''">$(DOTNET_HOST_PATH)</CSMacroDotnet>
     <CSMacroDotnet Condition="'$(CSMacroDotnet)' == ''">dotnet</CSMacroDotnet>
@@ -30,9 +35,14 @@
     <DefaultItemExcludes>$(DefaultItemExcludes);$(CSMacroDumpDir)/**</DefaultItemExcludes>
   </PropertyGroup>
 
+  <!-- 自动构建展开工具（同一次构建里多个项目共用，MSBuild 只会构建一次） -->
+  <Target Name="CSMacroBuildCli" Condition="'$(_CSMacroBuildCli)' == 'true'">
+    <MSBuild Projects="$(_CSMacroCliProject)" Targets="Build" Properties="Configuration=$(Configuration)" />
+  </Target>
+
   <Target Name="CSMacroExpand"
           BeforeTargets="CoreCompile"
-          DependsOnTargets="ResolveAssemblyReferences"
+          DependsOnTargets="ResolveAssemblyReferences;CSMacroBuildCli"
           Condition="'$(CSMacroEnabled)' == 'true' and '$(DesignTimeBuild)' != 'true'">
 
     <PropertyGroup>
@@ -40,14 +50,17 @@
       <_CSMacroRsp>$(_CSMacroDir)args.rsp</_CSMacroRsp>
       <_CSMacroOriginalsFile>$(_CSMacroDir)originals.txt</_CSMacroOriginalsFile>
       <_CSMacroExpandedFile>$(_CSMacroDir)expanded.txt</_CSMacroExpandedFile>
+      <_CSMacroRuntimeUnusedFile>$(_CSMacroDir)runtime-unused.txt</_CSMacroRuntimeUnusedFile>
     </PropertyGroup>
 
     <ItemGroup>
       <_CSMacroArg Include="--out:$(_CSMacroDir)src" />
       <_CSMacroArg Include="--originals:$(_CSMacroOriginalsFile)" />
       <_CSMacroArg Include="--expanded:$(_CSMacroExpandedFile)" />
+      <_CSMacroArg Include="--runtime-unused:$(_CSMacroRuntimeUnusedFile)" />
       <_CSMacroArg Include="--langversion:$(LangVersion)" />
       <_CSMacroArg Include="--nullable:$(Nullable)" />
+      <_CSMacroArg Include="--output-type:$(OutputType)" />
       <_CSMacroArg Include="-d:$([MSBuild]::Escape($(DefineConstants)))" />
       <_CSMacroArg Include="--startup-attribute:$(CSMacroStartupAttribute)" Condition="'$(CSMacroStartupAttribute)' != ''" />
       <_CSMacroArg Include="--no-verify" Condition="'$(CSMacroVerify)' == 'false'" />
@@ -73,6 +86,25 @@
     <ItemGroup>
       <Compile Remove="@(_CSMacroOriginal)" />
       <Compile Include="@(_CSMacroExpanded)" />
+    </ItemGroup>
+
+    <!--
+      运行时清理：宏库只在编译期有用。展开后已经用不到的宏程序集（csmacro 用 GetUsedAssemblyReferences 判定）
+      从编译引用、复制到输出的文件中移除，于是程序集元数据、deps.json、输出目录里都不再有它们。
+    -->
+    <ReadLinesFromFile File="$(_CSMacroRuntimeUnusedFile)" Condition="'$(CSMacroRuntimeCleanup)' == 'true'">
+      <Output TaskParameter="Lines" ItemName="_CSMacroRuntimeUnused" />
+    </ReadLinesFromFile>
+    <PropertyGroup>
+      <_CSMacroRuntimeUnusedNames>;@(_CSMacroRuntimeUnused->'%(Filename)');</_CSMacroRuntimeUnusedNames>
+    </PropertyGroup>
+    <ItemGroup Condition="'@(_CSMacroRuntimeUnused)' != ''">
+      <_CSMacroDropReference Include="@(ReferencePath)" Condition="$(_CSMacroRuntimeUnusedNames.Contains(';%(Filename);'))" />
+      <_CSMacroDropRefAssembly Include="@(ReferencePathWithRefAssemblies)" Condition="$(_CSMacroRuntimeUnusedNames.Contains(';%(Filename);'))" />
+      <_CSMacroDropCopyLocal Include="@(ReferenceCopyLocalPaths)" Condition="$(_CSMacroRuntimeUnusedNames.Contains(';%(Filename);'))" />
+      <ReferencePath Remove="@(_CSMacroDropReference)" />
+      <ReferencePathWithRefAssemblies Remove="@(_CSMacroDropRefAssembly)" />
+      <ReferenceCopyLocalPaths Remove="@(_CSMacroDropCopyLocal)" />
     </ItemGroup>
   </Target>
 

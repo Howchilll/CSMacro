@@ -24,7 +24,7 @@ namespace CSMacro.Engine
     /// 4. 把启动代码汇总成一个辅助脚本。
     /// 5. （CLI）编译检查宏生成的代码，出错时报出是哪个宏生成的。
     /// </summary>
-    public static class MacroExpander
+    public static partial class MacroExpander
     {
         private const string MacroAttributeName = "CSMacro.MacroAttribute";
         private const string AttributeMacroAttributeName = "CSMacro.AttributeMacroAttribute";
@@ -36,7 +36,7 @@ namespace CSMacro.Engine
         {
             var parseOptions = new CSharpParseOptions(
                 ParseLanguageVersion(options.LanguageVersion),
-                DocumentationMode.None,
+                DocumentationMode.Parse, // 运行时清理需要：不解析文档注释时 GetUsedAssemblyReferences 会把所有引用都算作用到
                 SourceCodeKind.Regular,
                 options.Defines);
 
@@ -53,7 +53,7 @@ namespace CSMacro.Engine
                 "CSMacro.Expansion",
                 trees,
                 references,
-                new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true,
+                new CSharpCompilationOptions(ParseOutputKind(options.OutputType), allowUnsafe: true,
                     nullableContextOptions: ParseNullable(options.Nullable)));
 
             var diagnostics = new List<MacroDiagnostic>();
@@ -62,18 +62,24 @@ namespace CSMacro.Engine
             if (options.Verify && !diagnostics.Exists(d => d.Level == DiagnosticLevel.Error))
                 Verify(compilation, trees, result, parseOptions, diagnostics);
 
+            // 运行时清理：去掉导入宏库的无用 using，找出运行时已经不需要的宏程序集
+            IReadOnlyList<SyntaxTree> finalTrees = result.Expanded;
+            var runtimeUnused = new List<string>();
+            if (options.RuntimeCleanup && !diagnostics.Exists(d => d.Level == DiagnosticLevel.Error))
+                (finalTrees, runtimeUnused) = RuntimeCleanup(compilation, trees, result.Expanded, result.StartupCode, parseOptions);
+
             var files = new List<ExpandedFile>();
             for (var i = 0; i < sources.Count; i++)
             {
-                if (ReferenceEquals(result.Expanded[i], trees[i])) continue;
+                if (ReferenceEquals(finalTrees[i], trees[i])) continue;
                 var header = "#line 1 \"" + EscapePath(sources[i].Path) + "\"\n";
-                files.Add(new ExpandedFile(sources[i].Id, sources[i].Path, header + result.Expanded[i].GetText()));
+                files.Add(new ExpandedFile(sources[i].Id, sources[i].Path, header + finalTrees[i].GetText()));
             }
 
             var generated = new List<GeneratedFile>();
             if (result.StartupCode != null) generated.Add(new GeneratedFile(StartupFileName, result.StartupCode));
 
-            return new ExpandResult(files, generated, diagnostics, result.Expansions);
+            return new ExpandResult(files, generated, diagnostics, result.Expansions) { RuntimeUnusedReferences = runtimeUnused };
         }
 
         /// <summary>
@@ -91,6 +97,7 @@ namespace CSMacro.Engine
             var models = new SemanticModel[n];
             var calls = new List<MacroCall>[n];
             var attrs = new List<AttributeUse>[n];
+            var regions = new List<RegionUse>[n];
             var failed = new bool[n];
             var nestedOuters = new HashSet<InvocationExpressionSyntax>(); // 实参里含宏的调用：不执行，避免误导性的连带错误
             var defines = targets.Count > 0 ? ((CSharpParseOptions)targets[0].Options).PreprocessorSymbolNames.ToArray() : new string[0];
@@ -102,6 +109,8 @@ namespace CSMacro.Engine
                 models[i] = compilation.GetSemanticModel(targets[i]);
                 calls[i] = FindMacroCalls(targets[i], models[i]);
                 attrs[i] = FindAttributeMacros(targets[i], models[i]);
+                regions[i] = FindRegionMacros(targets[i], diagnostics, out var regionFailed);
+                failed[i] |= regionFailed;
 
                 foreach (var c in calls[i].ToList())
                 {
@@ -122,7 +131,9 @@ namespace CSMacro.Engine
             {
                 calls[i] = calls[i].Where(c => selected("@" + c.Method.Name)).ToList();
                 attrs[i] = attrs[i].Where(a => selected("[@" + a.Ctor.ContainingType.Name + "]")).ToList();
+                regions[i] = regions[i].Where(r => selected("@" + r.Name)).ToList();
             }
+            var regionIndex = regions.Any(r => r.Count > 0) ? RegionMacroIndex(compilation) : null;
             var records = new List<MacroExpansion>();
 
             // ---- 1. 特性宏阶段 ----
@@ -142,9 +153,10 @@ namespace CSMacro.Engine
             // ---- 2. 方法宏阶段 ----
             var expanded = targets.ToArray();
             var expansionLines = new Dictionary<SyntaxTree, Dictionary<int, string>>();
+            var transformed = new Dictionary<ISymbol, string>(SymbolEqualityComparer.Default); // 被宏从字段变成属性的成员 → 宏名
             for (var i = 0; i < n; i++)
             {
-                if (calls[i].Count == 0 && attrs[i].Count == 0) continue;
+                if (calls[i].Count == 0 && attrs[i].Count == 0 && regions[i].Count == 0) continue;
 
                 var tree = targets[i];
                 var macroAttributes = new HashSet<AttributeSyntax>(attrs[i].Select(a => a.Node));
@@ -166,8 +178,20 @@ namespace CSMacro.Engine
 
                     changes.Add(change.Value);
                     records.Add(Record(tree, change.Value, call));
+                    if (call.UsedSite == MacroSite.Member && call.Node.Parent?.Parent is VariableDeclaratorSyntax declarator &&
+                        SyntaxFactory.ParseMemberDeclaration(change.Value.NewText!.Trim()) is PropertyDeclarationSyntax &&
+                        models[i].GetDeclaredSymbol(declarator) is { } field)
+                        transformed[field] = "@" + call.Method.Name;
                     var line = tree.GetLineSpan(change.Value.Span).StartLinePosition.Line + 1;
                     lines[line] = lines.TryGetValue(line, out var names) ? names + ", @" + call.Method.Name : "@" + call.Method.Name;
+                }
+
+                // 片段宏（与方法宏同一阶段，都在全部特性宏之后）
+                foreach (var region in regions[i])
+                {
+                    if (!ExpandRegion(region, tree, models[i], compilation, invoker, defines, semantics, macroAttributes, available,
+                            calls[i], attrs[i], regionIndex!, changes, lines, records, transformed, diagnostics))
+                        failed[i] = true;
                 }
                 if (failed[i]) continue;
 
@@ -180,10 +204,20 @@ namespace CSMacro.Engine
                 }
 
                 changes.Sort((a, b) => a.Span.Start.CompareTo(b.Span.Start));
+                if (changes.Zip(changes.Skip(1), (a, b) => a.Span.End > b.Span.Start).Any(x => x))
+                {
+                    diagnostics.Add(new MacroDiagnostic(DiagnosticLevel.Error, "CSM014",
+                        "two macros replace overlapping code in this file", tree.FilePath, 1, 1));
+                    failed[i] = true;
+                    continue;
+                }
                 var newTree = tree.WithChangedText(tree.GetText().WithChanges(changes));
                 expanded[i] = newTree;
                 expansionLines[newTree] = lines;
             }
+
+            // ---- 2b. 字段变成属性后，只对字段成立的用法（ref/out、取地址、修改结构体副本）提前报错 ----
+            CheckPropertyUses(transformed, targets, models, failed, diagnostics);
 
             // ---- 3. 宏的输出也不能包含宏 ----
             var after = compilation;
@@ -199,6 +233,8 @@ namespace CSMacro.Engine
                 IEnumerable<(SyntaxNode Node, string Name)> leftovers =
                     FindMacroCalls(expanded[i], model).Select(c => ((SyntaxNode)c.Node, "@" + c.Method.Name))
                     .Concat(FindAttributeMacros(expanded[i], model).Select(a => ((SyntaxNode)a.Node, "[@" + a.Ctor.ContainingType.Name + "]")));
+
+                leftovers = leftovers.Concat(RegionMacroDirectives(expanded[i]).Select(r => ((SyntaxNode)r, "#region " + RegionMessage(r))));
 
                 foreach (var (node, macro) in leftovers)
                 {
@@ -863,6 +899,14 @@ namespace CSMacro.Engine
             var name = string.Join("+", parts);
             return type.ContainingNamespace.IsGlobalNamespace ? name : type.ContainingNamespace.ToDisplayString() + "." + name;
         }
+
+        private static OutputKind ParseOutputKind(string? value) => value?.ToLowerInvariant() switch
+        {
+            "exe" => OutputKind.ConsoleApplication,
+            "winexe" => OutputKind.WindowsApplication,
+            "module" => OutputKind.NetModule,
+            _ => OutputKind.DynamicallyLinkedLibrary,
+        };
 
         private static NullableContextOptions ParseNullable(string? value) =>
             Enum.TryParse<NullableContextOptions>(value, ignoreCase: true, out var n) ? n : NullableContextOptions.Disable;

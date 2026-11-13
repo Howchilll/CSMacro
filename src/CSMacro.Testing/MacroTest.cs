@@ -49,6 +49,7 @@ namespace CSMacro.Testing
                 Nullable = options.Nullable,
                 Verify = options.Verify,
                 Macros = options.Macros.Count > 0 ? options.Macros : null,
+                RuntimeCleanup = options.RuntimeCleanup,
             };
             if (options.StartupAttribute != null) expandOptions.StartupAttribute = options.StartupAttribute;
 
@@ -118,6 +119,12 @@ namespace CSMacro.Testing
 
         public string? StartupAttribute { get; set; }
 
+        /// <summary>
+        /// 运行时清理（去掉导入宏库的无用 using、判定运行时不需要的宏程序集，见 <see cref="MacroTestResult.RuntimeUnused"/>）。
+        /// 要额外做完整的语义分析，比较慢，测试里默认关闭。
+        /// </summary>
+        public bool RuntimeCleanup { get; set; }
+
         /// <summary>只展开这些宏（LOGGED、@LOGGED、Save、[@Save] 都可以），其余保持原样；为空表示全部。</summary>
         public List<string> Macros { get; set; } = new List<string>();
     }
@@ -161,6 +168,9 @@ namespace CSMacro.Testing
 
         /// <summary>汇总启动代码的辅助脚本；没有启动代码时为 null。</summary>
         public string? Startup { get; }
+
+        /// <summary>运行时清理判定为"运行时不需要"的宏程序集（磁盘路径）。</summary>
+        public IReadOnlyList<string> RuntimeUnused => _result.RuntimeUnusedReferences;
 
         /// <summary>每一次宏展开的记录：宏、位置、源码、输出、格式化后的输出。</summary>
         public IReadOnlyList<MacroExpansion> Expansions => _result.Expansions;

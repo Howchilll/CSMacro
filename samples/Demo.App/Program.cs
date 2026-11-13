@@ -36,6 +36,12 @@ Console.WriteLine("tracked: " + @DUMP_TRACKED(p));
 // @DUMP：宏用语义信息遍历 Player 的成员，编译期生成拼接代码（运行时不用反射）
 Console.WriteLine("dump: " + @DUMP(p));
 
+// 片段宏 #region @LOG_ALL：Enemy 里被包住的字段改变时都会自动打 log
+var enemy = new Enemy();
+enemy.Hp -= 20;
+enemy.State = "Chasing";
+enemy.Attack = 8; // 值没变，不打 log
+
 // 编译期生成 switch
 for (var i = 0; i < 3; i++)
     Console.WriteLine(@NAME_OF_INDEX(i, "Red", "Green"));

@@ -11,9 +11,11 @@ using CSMacro.Engine;
 //   -d:<A;B;C>      预处理符号
 //   --langversion:<v>
 //   --nullable:<enable|disable|warnings|annotations>
+//   --output-type:<Exe|WinExe|Library>
 //   --out:<目录>        展开后的文件写到这里
 //   --originals:<文件>  清单：被替换掉的原 Compile 项
 //   --expanded:<文件>   清单：替换进来的展开文件（含引擎生成的辅助脚本）
+//   --runtime-unused:<文件>  清单：运行时已经不需要的宏程序集（MSBuild 据此从引用和输出中移除）
 //   --startup-attribute:<特性>  启动辅助脚本入口上的特性（默认 ModuleInitializer）
 //   --no-verify         不对宏生成的代码做编译检查
 //   --dump:<目录>          另外把展开结果写到这个目录（逐行对齐的源文件 + 辅助脚本 + _expansions.txt 报告），用来排查问题
@@ -23,9 +25,9 @@ using CSMacro.Engine;
 var sources = new List<string>();
 var references = new List<string>();
 var defines = new List<string>();
-string? outDir = null, originalsFile = null, expandedFile = null, langVersion = null, startupAttribute = null, nullable = null;
+string? outDir = null, originalsFile = null, expandedFile = null, langVersion = null, startupAttribute = null, nullable = null, outputType = null;
 var verify = true;
-string? dumpDir = null;
+string? dumpDir = null, runtimeUnusedFile = null;
 List<string>? dumpFiles = null, dumpMacros = null;
 
 foreach (var arg in ExpandResponseFiles(args))
@@ -35,11 +37,13 @@ foreach (var arg in ExpandResponseFiles(args))
     else if (TryValue(arg, "-d:", out v)) defines.AddRange(v.Split(';', ',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
     else if (TryValue(arg, "--langversion:", out v)) langVersion = v;
     else if (TryValue(arg, "--nullable:", out v)) nullable = v;
+    else if (TryValue(arg, "--output-type:", out v)) outputType = v;
     else if (TryValue(arg, "--out:", out v)) outDir = v;
     else if (TryValue(arg, "--originals:", out v)) originalsFile = v;
     else if (TryValue(arg, "--expanded:", out v)) expandedFile = v;
     else if (TryValue(arg, "--startup-attribute:", out v)) startupAttribute = v;
     else if (arg == "--no-verify") verify = false;
+    else if (TryValue(arg, "--runtime-unused:", out v)) runtimeUnusedFile = v;
     else if (TryValue(arg, "--dump:", out v)) dumpDir = v.Length > 0 ? v : null;
     else if (TryValue(arg, "--dump-files:", out v)) dumpFiles = SplitList(v);
     else if (TryValue(arg, "--dump-macros:", out v)) dumpMacros = SplitList(v);
@@ -67,6 +71,7 @@ ExpandOptions MakeOptions(IReadOnlyCollection<string>? macros) => new ExpandOpti
         Defines = defines,
         LanguageVersion = langVersion,
         Nullable = nullable,
+        OutputType = outputType,
         Verify = verify,
         StartupAttribute = string.IsNullOrWhiteSpace(startupAttribute) ? new ExpandOptions().StartupAttribute : startupAttribute,
     };
@@ -112,9 +117,13 @@ foreach (var file in result.GeneratedFiles)
 }
 WriteIfChanged(originalsFile, string.Join('\n', originals));
 WriteIfChanged(expandedFile, string.Join('\n', expanded));
+if (runtimeUnusedFile != null) WriteIfChanged(runtimeUnusedFile, string.Join('\n', result.RuntimeUnusedReferences));
 
 Console.WriteLine($"csmacro: expanded macros in {result.Files.Count} of {inputs.Count} file(s)" +
-                  (result.GeneratedFiles.Count > 0 ? $", generated {string.Join(", ", result.GeneratedFiles.Select(f => f.Name))}" : ""));
+                  (result.GeneratedFiles.Count > 0 ? $", generated {string.Join(", ", result.GeneratedFiles.Select(f => f.Name))}" : "") +
+                  (result.RuntimeUnusedReferences.Count > 0
+                      ? $"; not needed at runtime: {string.Join(", ", result.RuntimeUnusedReferences.Select(Path.GetFileNameWithoutExtension))}"
+                      : ""));
 return 0;
 
 static bool InsideDumpDirectory(string id)

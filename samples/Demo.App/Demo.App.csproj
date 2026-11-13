@@ -9,8 +9,6 @@
   <ItemGroup>
     <!-- 宏库：IDE 靠它认识 @GETSET 等方法，展开器也从这里加载宏。 -->
     <ProjectReference Include="../Demo.Macros/Demo.Macros.csproj" />
-    <!-- 只是保证展开工具先编译好，不引用它的程序集。 -->
-    <ProjectReference Include="../../src/CSMacro.Cli/CSMacro.Cli.csproj" ReferenceOutputAssembly="false" />
   </ItemGroup>
 
   <Import Project="../../build/CSMacro.targets" />

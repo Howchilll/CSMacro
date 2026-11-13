@@ -2,7 +2,7 @@
 
 ## 一句话
 
-宏就是**真实存在的 C# 代码**：方法宏是带 `[Macro]` 的方法，特性宏是带 `[AttributeMacro]` 的特性类。
+宏就是**真实存在的 C# 代码**：方法宏是带 `[Macro]` 的方法，特性宏是带 `[AttributeMacro]` 的特性类，片段宏是带 `[RegionMacro]` 的方法。
 IDE 把 `@GETSET(...)`、`[@Save]` 当作普通的方法调用和特性（可以补全、做类型检查、F12 跳进宏实现）；
 编译前，展开器**执行宏的方法体（或构造函数体）**拿到代码；运行时只剩展开后的代码。
 
@@ -46,19 +46,34 @@ IDE 看到的是三个字段，编译器拿到的是三个带 log 的属性。�
 | Statement 方法宏 | 展开结果自动包进 `{ }`，宏内声明的局部变量出不了这个块 | 不会发生 |
 | Expression 方法宏 | 本来就不引入名字 | 不会发生 |
 | 特性宏 | 不改它标记的声明；产出的片段只能引用源码里已有的名字 | 引用了不存在的名字时报 CSM013 |
+| 片段宏 | 逐成员替换：同 Member 方法宏；整段文本替换：字段和属性的名字、类型不变，成员名字集合不变 | CSM008 / CSM009 |
 
 宏生成的新名字 IDE 看不见，按这条原则这种宏一律不允许，不去事后补救。
 
-## 两种宏
+**字段变成属性后的用法检查（CSM017）**：Member 宏和片段宏会把字段变成同名同类型的属性。
+对绝大多数代码这两者等价，但有几种用法只对字段成立。IDE 看到的是字段，不会报错，展开后才编译失败，
+而且编译器的报错和源码对不上。引擎会在整个项目里找出这些用法，在用法所在的行报错：
 
-| | 方法宏 `@X(...)` | 特性宏 `[@X]` |
-|---|---|---|
-| 定义 | 带 `[Macro(MacroSite...)]` 的静态方法 | 带 `[AttributeMacro(MacroTarget...)]` 的特性类 |
-| 展开逻辑 | 方法体 | 构造函数体 |
-| 作用 | **原地展开**，替换调用处 | **产出辅助代码片段**，不改它标记的声明 |
-| 输出 API | `Macro.Emit(code)` | `Macro.Fragment(channel, code)` / `Macro.Startup(code)` |
-| 展开后 | 调用处被替换 | 特性从源码中删除，运行时不存在 |
-| 例子 | `@GETSET`、`@LOGGED`、`@LOG` | `[@Save]`：字段自动进入存档容器 |
+- `ref` / `out` 实参，比如 `Interlocked.Increment(ref p.Gold)`、`int.TryParse(s, out Hp)`
+- `ref` 表达式，比如 `ref int hp = ref Hp;`
+- 取地址 `&p.Gold`
+- 修改结构体类型成员的内部，比如 `p.Pos.X = 1`、`p.Pos.X++`：属性返回的是副本，修改会丢失
+
+```
+error CSM017: Gold is turned into a property by @LOGGED, so it can't be passed as `ref`. The IDE still sees a field here, but the compiled code has a property
+```
+
+## 三种宏
+
+| | 方法宏 `@X(...)` | 特性宏 `[@X]` | 片段宏 `#region @X` |
+|---|---|---|---|
+| 定义 | 带 `[Macro(MacroSite...)]` 的静态方法 | 带 `[AttributeMacro(MacroTarget...)]` 的特性类 | 带 `[RegionMacro]` 的静态方法 |
+| 展开逻辑 | 方法体 | 构造函数体 | 方法体 |
+| 作用 | **原地展开**，替换调用处 | **产出辅助代码片段**，不改它标记的声明 | **处理片段里的一组成员** |
+| 输出 API | `Macro.Emit(code)` | `Macro.Fragment` / `Macro.Startup` | 逐个 `member.Replace(code)`，或 `Macro.Emit(全文)` |
+| 展开后 | 调用处被替换 | 特性从源码中删除 | 成员被替换；`#region` 变成 `#region [expanded] @X` |
+| IDE 支持 | 补全、跳转、类型检查 | 补全、跳转 | 无（`#region` 后的文字对 IDE 只是注释） |
+| 例子 | `@GETSET`、`@LOGGED`、`@LOG` | `[@Save]`：字段自动进入存档容器 | `@LOG_ALL`：给一组字段加自动 log |
 
 `[@Save]` 本身就是合法的 C#：`@` 让编译器只查找名为 `Save` 的特性类，不会自动补 `Attribute` 后缀。
 
@@ -91,6 +106,66 @@ Console.WriteLine(@DUMP_TRACKED(p));   // → ("Hp=" + p.Hp + ", " + "Gold=" + p
 
 入口上的特性可以通过 `CSMacroStartupAttribute` 配置。普通 .NET 默认用 `ModuleInitializer`，
 Unity 以后可以换成 `RuntimeInitializeOnLoadMethod`。
+
+## 片段宏
+
+用 `#region @NAME` … `#endregion` 包住一组成员，交给一个片段宏统一处理。
+典型场景：测试时想给 Player 的所有字段加自动 log，包起来就行，测完删掉这两行即恢复原样。
+
+```csharp
+public class Enemy
+{
+    #region @LOG_ALL
+    public int Hp = 50;
+    public string State = "Idle";
+    public readonly int Id = 1;                         // readonly：宏跳过
+    public int Shield = @GETSET(DataCenter.PlayerData.Mp); // 已被 @GETSET 展开：宏跳过
+    #endregion
+}
+```
+
+### 两种处理方式（二选一）
+
+**逐成员替换**：`Macro.RegionMembers` 列出片段里的每个成员，包括名字、类型、修饰符、普通特性、初值原文、语义信息、
+`ExpandedBy`（是否已被其他宏展开）、`CanReplace`。调用 `member.Replace(code)` 替换，没替换的保持原样。
+每个替换结果留在成员原来的那一行，并且逐个按 Member 方法宏的规则检查（同名同类型的字段或属性）。
+
+```csharp
+[RegionMacro]
+public static void LOG_ALL()
+{
+    foreach (var m in Macro.RegionMembers)
+    {
+        if (!m.IsField || !m.CanReplace || m.Declaration?.CanWrite != true) continue;
+        m.Replace($"{m.Attributes} {m.Modifiers} {m.Type} {m.Name} {{ get; set {{ ...log...; field = value; }} }} = {m.Initializer};");
+    }
+}
+```
+
+**整段文本替换**：`Macro.RegionText` 是 `#region` 与 `#endregion` 之间的原文，用 `Macro.Emit` 输出替换后的全文。
+适合正则替换这类纯文本处理。输出原样使用（不压成一行），所以：
+
+- 输出的行数**不能超过**原文，否则后面的行号会错位（CSM007）；少了会自动补齐。
+- 替换后整体检查：字段和属性的名字、类型不变，成员名字集合不变（CSM008 / CSM009）。
+- 片段里不能有其他宏，因为整段替换会把它们一起替换掉（CSM012）。
+
+```csharp
+[RegionMacro]
+public static void PUBLIC_ALL() => Macro.Emit(Regex.Replace(Macro.RegionText, @"\bprivate\b", "public"));
+```
+
+### 规则
+
+- **识别**：`#region` 后面的文字以 `@` 开头就是片段宏，可以带常量实参，比如 `#region @NAME("x", 3)`。
+  按名字在被引用的程序集里查找带 `[RegionMacro]` 的静态方法。找不到或有歧义时**报错并停止编译**（CSM015）。
+  普通的 `#region` 不受影响。
+- **范围**：目前只支持类型内部，`#region` 和 `#endregion` 必须直接位于同一个类/结构的成员之间。
+  放在方法体里或命名空间层级会报 CSM003。
+- **执行顺序**：和方法宏处于同一阶段，都在全部特性宏之后，所以片段宏也能用 `Macro.Fragments` 读取片段。
+- **宏不能包含宏**：片段宏不能嵌套（CSM012）；已经含有宏的成员不能被替换。
+  这时 `CanReplace` 为 false，硬要替换会报错，并说明它已被哪个宏展开。
+- **只能选一种方式**：同时使用逐成员替换和整段文本替换会报 CSM016。
+- **IDE 支持**：`#region` 后的文字对 IDE 只是注释，所以片段宏没有补全，也不能跳转到实现。这是它和另外两种宏的区别。
 
 ## 语义信息
 
@@ -134,8 +209,8 @@ if (!symbol.CanWrite) Macro.Error($"`{path}` is read-only, so {Macro.Name}'s set
 
 ## 展开规则
 
-1. **先特性宏，再方法宏**。所有特性宏按文件、行的顺序执行完，方法宏才开始执行，
-   所以方法宏读到的片段一定是完整的。
+1. **先特性宏，再方法宏和片段宏**。所有特性宏按文件、行的顺序执行完，方法宏和片段宏才开始执行，
+   所以它们读到的片段一定是完整的。
 2. **宏不能包含宏**：方法宏的实参里不能有宏，宏的输出里也不能有宏，否则报 CSM012。
    需要组合时，先展开到一个局部变量：`var sq = @SQUARE(4); @LOG(sq);`。每个宏只展开一次，行为可预测。
 3. **一行可以有多个宏**，各自展开：`[@Track, @Save] public int Gold = @LOGGED(100);`。
@@ -145,6 +220,30 @@ if (!symbol.CanWrite) Macro.Error($"`{path}` is read-only, so {Macro.Name}'s set
    出错时报 CSM013，并指明是哪个宏生成的代码，比如
    `Player.cs(6,21): error CSM013: code generated by @BAD_GEN doesn't compile: CS0103 ...`。
    业务代码自己的错误不在这里检查，留给编译器照常报。可以用 `CSMacroVerify=false` 关闭这一步。
+
+## 运行时清理
+
+宏库只在编译期有用，展开后程序不应该再依赖它。每次构建时引擎会：
+
+1. **去掉导入宏库、且已经用不到的 using**，比如 `using static Demo.Macros.M;`。只清空那一行，行号不变。
+   不去掉的话，编译器会为 PDB 的导入信息在程序集里保留对宏库类型的引用。
+2. **判断宏程序集是否还被用到**：用 Roslyn 的 `GetUsedAssemblyReferences` 检查宏库和 `CSMacro.Abstractions`，
+   并确认没有其他运行时依赖引用它们。
+3. **从引用和输出中移除**：MSBuild 把运行时不需要的宏程序集从编译引用和"复制到输出"的列表中拿掉。
+   于是编译出的程序集元数据、`deps.json`、输出目录里都不再有它们。
+
+```
+csmacro: expanded macros in 3 of 7 file(s), generated CSMacro.Startup.g.cs; not needed at runtime: CSMacro.Abstractions, Demo.Macros
+```
+
+几点说明：
+
+- **保守**：展开后的代码如果仍然用到宏库里的普通类型（不是宏，比如运行时调用了 `CSMacro.Macro.Quote`），对应的程序集会照常保留。
+  分析用的编译只要有任何错误，就什么都不去掉。
+- **分析和真实编译要一致**：项目的 `OutputType`、`Nullable` 会传给引擎；源码按 `DocumentationMode.Parse` 解析，
+  否则 Roslyn 无法判断文档注释里的 `cref` 引用了什么，会把所有引用都算作用到。
+- **可以关闭**：`-p:CSMacroRuntimeCleanup=false`。测试工具里默认关闭（比较慢），可以用 `MacroTestOptions.RuntimeCleanup = true` 打开，
+  结果在 `r.RuntimeUnused`。
 
 ## 排查展开后的问题：dump 到文件夹
 
@@ -266,6 +365,14 @@ dotnet build samples/Demo.App && dotnet samples/Demo.App/bin/Debug/net10.0/Demo.
 再把 `@(Compile)` 里的原文件换成展开副本，并加入辅助脚本。源文件一个字都不动，因此不需要"复原"，崩溃也不会留下脏文件。
 IDE 的 design-time build 会跳过这一步，所以 IDE 看到的永远是原文件。
 
+使用方只需要两步：引用宏库，导入 `CSMacro.targets`。展开工具 `CSMacro.Cli` 由 targets 自动构建，
+不需要引用它，它也不会出现在程序的输出目录里。
+
+```xml
+<ProjectReference Include="../Demo.Macros/Demo.Macros.csproj" />
+<Import Project="../../build/CSMacro.targets" />
+```
+
 ### 2. 识别宏靠语义，`@` 是约定
 展开器问 Roslyn："这个调用实际调用的方法带不带 `[Macro]`？这个特性类带不带 `[AttributeMacro]`？"，而不是搜索 `@` 文本。
 因此 `@"字符串"`、`@class` 永远不会被误伤。漏写 `@` 会给出警告 CSM010，保证读代码的人一眼看出是宏。
@@ -324,6 +431,7 @@ Unity 里对应的是一个单独的 asmdef。
 | `Startup(code)` | | ✓ | 产出启动代码，汇总进辅助脚本 |
 | `Error(msg)` / `Warning(msg)` | ✓ | ✓ | 报告到调用处的编译诊断 |
 | `Quote(text)` | ✓ | ✓ | 转成 C# 字符串字面量 |
+| `RegionMembers` / `RegionText` / `IsRegionMacro` | 片段宏 | | 片段里的成员 / 原文；片段宏也可以使用方法宏那一列的 `Emit`、`Fragments`、语义信息 |
 
 调用了不属于当前宏种类的 API 会报 CSM005，并说明应该用哪个 API。
 
@@ -343,18 +451,21 @@ Unity 里对应的是一个单独的 asmdef。
 | CSM012 | 宏包含宏（在实参里或输出里） |
 | CSM013 | 宏生成的代码编译不过（会指明是哪个宏） |
 | CSM014 | 两个宏替换的代码重叠 |
+| CSM015 | 片段宏找不到、有歧义、写法无法识别，或缺少 `#endregion` |
+| CSM016 | 片段宏同时使用了逐成员替换和整段文本替换 |
+| CSM017 | 对被宏变成属性的字段使用了只对字段成立的写法（ref/out、ref 表达式、取地址、修改结构体副本） |
 | CSM100/101 | 宏自己报的错误/警告 |
 
 ## 已知问题与下一步
 
-1. **"字段 vs 属性"的细微差别**：名字和类型一致，但 IDE 以为是字段。
-   少数场景会表现不同：`ref p.Hp`、`out`、在 struct 中直接修改成员、反射或序列化按字段查找。
-   可以考虑加一个检查：Member 宏处理过的成员如果在源码里被 `ref`/`out` 使用就报错。
-2. **运行时仍引用宏程序集**：展开后已经没有任何调用了，可以在展开后从引用里去掉它。
-3. **展开用的编译不跑源码生成器**：调用方依赖源码生成器产出的类型时，实参类型可能推断不出来，
+1. **"字段 vs 属性"的剩余差别**：编译期就能发现的用法已经由 CSM017 检查。剩下两种情况：
+   - 运行时按字段查找的反射或序列化（比如只序列化字段的序列化器）会找不到这个成员。
+   - 片段宏的整段文本替换模式暂时不参与 CSM017 检查，逐成员替换模式会参与。
+2. **展开用的编译不跑源码生成器**：调用方依赖源码生成器产出的类型时，实参类型可能推断不出来，
    CSM013 检查也可能误报。需要用 `GeneratorDriver` 先跑一遍 `@(Analyzer)`。
-4. **语义信息的范围**：目前只覆盖类型和成员的声明信息，不包括方法体内部的控制流、数据流分析。
+3. **语义信息的范围**：目前只覆盖类型和成员的声明信息，不包括方法体内部的控制流、数据流分析。
    成员列表只包含源码里显式声明的成员，不含继承来的成员（可以通过 `BaseType` 自己往上查）。
-5. **调试**：展开后的代码在一行里，无法单步进入宏展开的内部。部分调试器可能提示源文件校验和不匹配（因为 PDB 记录的是展开副本的校验和）。
-6. **性能**：每次构建都会做一次完整语义分析，外加对宏生成代码的编译检查。后续可以按"源文件 + 宏程序集哈希"做缓存。
-7. **Unity**：按"截流编译器输入"的思路接入，复用 `CSMacro.Engine`；启动脚本的入口特性换成 Unity 的。
+4. **调试**：展开后的代码在一行里，无法单步进入宏展开的内部。部分调试器可能提示源文件校验和不匹配（因为 PDB 记录的是展开副本的校验和）。
+5. **性能**：每次构建都会做一次完整语义分析，外加对宏生成代码的编译检查和运行时清理（又是两遍完整分析）。
+   后续可以按"源文件 + 宏程序集哈希"做缓存。
+6. **Unity**：按"截流编译器输入"的思路接入，复用 `CSMacro.Engine`；启动脚本的入口特性换成 Unity 的。

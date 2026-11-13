@@ -54,6 +54,87 @@ namespace CSMacro
         public MacroTarget Targets { get; }
     }
 
+    /// <summary>
+    /// 把一个静态方法标记为片段宏：处理 <c>#region @NAME</c> … <c>#endregion</c> 之间的成员。
+    /// 方法体是展开逻辑：逐个成员 <see cref="MacroRegionMember.Replace"/>，或者用 <see cref="Macro.RegionText"/> + <see cref="Macro.Emit"/> 整段替换。
+    /// 注意：<c>#region</c> 后面的文字对 IDE 来说只是注释，所以片段宏没有补全和跳转；名字写错会在展开时报错。
+    /// </summary>
+    [AttributeUsage(AttributeTargets.Method, Inherited = false)]
+    public sealed class RegionMacroAttribute : Attribute
+    {
+    }
+
+    /// <summary>片段宏所包裹的一个成员。没有调用 <see cref="Replace"/> 的成员保持原样。</summary>
+    public sealed class MacroRegionMember
+    {
+        private readonly string? _cannotReplace;
+
+        public MacroRegionMember(string name, MacroMemberKind kind, string type, string modifiers, string attributes,
+            string? initializer, string source, int line, MacroMember? declaration, string? expandedBy, string? cannotReplace)
+        {
+            Name = name;
+            Kind = kind;
+            Type = type;
+            Modifiers = modifiers;
+            Attributes = attributes;
+            Initializer = initializer;
+            Source = source;
+            Line = line;
+            Declaration = declaration;
+            ExpandedBy = expandedBy;
+            _cannotReplace = cannotReplace;
+        }
+
+        public string Name { get; }
+        public MacroMemberKind Kind { get; }
+
+        /// <summary>声明的类型（方法为返回类型）。</summary>
+        public string Type { get; }
+
+        public string Modifiers { get; }
+
+        /// <summary>成员上的普通特性原文（已去掉特性宏）。</summary>
+        public string Attributes { get; }
+
+        /// <summary>初始值原文：<c>public int Gold = 100;</c> → <c>100</c>；没有时为 null。</summary>
+        public string? Initializer { get; }
+
+        /// <summary>成员的源码原文。</summary>
+        public string Source { get; }
+
+        public int Line { get; }
+
+        /// <summary>成员的语义信息。</summary>
+        public MacroMember? Declaration { get; }
+
+        /// <summary>这个成员已经被哪个 Member 方法宏展开（例如 "GETSET"）；片段宏通常应该跳过它。</summary>
+        public string? ExpandedBy { get; }
+
+        public bool IsField => Kind == MacroMemberKind.Field;
+        public bool IsProperty => Kind == MacroMemberKind.Property;
+
+        /// <summary>能否被替换：只有单变量字段和属性可以，且成员里不能已经有宏（宏不能包含宏）。</summary>
+        public bool CanReplace => _cannotReplace == null;
+
+        /// <summary>替换成的代码；null 表示保持原样。</summary>
+        public string? Replacement { get; private set; }
+
+        /// <summary>
+        /// 把这个成员替换成 <paramref name="code"/>。结果必须仍是同名同类型的字段或属性（核心原则），
+        /// 会留在成员原来的那一行。
+        /// </summary>
+        public void Replace(string code)
+        {
+            if (_cannotReplace != null) throw new InvalidOperationException($"can't replace {Name}: {_cannotReplace}");
+            Replacement = code;
+        }
+
+        /// <summary>撤销替换，保持原样。</summary>
+        public void Keep() => Replacement = null;
+
+        public override string ToString() => Source;
+    }
+
     /// <summary>调用处的一个实参。</summary>
     public sealed class MacroArg
     {
@@ -175,6 +256,12 @@ namespace CSMacro
         /// <summary>方法宏阶段：所有特性宏产出的片段，按频道分组。</summary>
         public IReadOnlyDictionary<string, IReadOnlyList<MacroFragment>>? AvailableFragments { get; set; }
 
+        /// <summary>片段宏：被包裹的成员；其他宏为 null。</summary>
+        public IReadOnlyList<MacroRegionMember>? RegionMembers { get; set; }
+
+        /// <summary>片段宏：#region 与 #endregion 之间的原文。</summary>
+        public string? RegionText { get; set; }
+
         public StringBuilder Output { get; } = new StringBuilder();
         public List<MacroFragment> ProducedFragments { get; } = new List<MacroFragment>();
         public List<MacroFragment> ProducedStartup { get; } = new List<MacroFragment>();
@@ -200,6 +287,21 @@ namespace CSMacro
 
         /// <summary>当前执行的是特性宏（true）还是方法宏（false）。</summary>
         public static bool IsAttributeMacro => Ctx.Target != null;
+
+        /// <summary>当前执行的是片段宏（<c>#region @NAME</c>）。</summary>
+        public static bool IsRegionMacro => Ctx.RegionMembers != null;
+
+        /// <summary>片段宏：被包裹的成员（按顺序）。逐个 <see cref="MacroRegionMember.Replace"/>，没替换的保持原样。</summary>
+        public static IReadOnlyList<MacroRegionMember> RegionMembers => Ctx.RegionMembers
+            ?? throw new InvalidOperationException($"Macro.RegionMembers is only available in region macros; @{Self} is not one");
+
+        /// <summary>
+        /// 片段宏：#region 与 #endregion 之间的原文，用于整段文本替换：用 <see cref="Emit"/> 输出替换后的全文。
+        /// 输出的行数不能超过原文（否则后面的行号会错位），少了会自动补齐。
+        /// 和逐成员替换二选一。
+        /// </summary>
+        public static string RegionText => Ctx.RegionText
+            ?? throw new InvalidOperationException($"Macro.RegionText is only available in region macros; @{Self} is not one");
 
         /// <summary>方法宏：这次调用实际匹配到的位置类型。</summary>
         public static MacroSite Site => Ctx.Site;

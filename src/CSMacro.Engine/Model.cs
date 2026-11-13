@@ -129,6 +129,9 @@ namespace CSMacro.Engine
         /// <summary>项目的 Nullable 设置（enable / disable / warnings / annotations），影响语义信息里的 IsNullable。</summary>
         public string? Nullable { get; set; }
 
+        /// <summary>项目的输出类型（Exe / WinExe / Library）。顶层语句要求 Exe，否则分析用的编译会报错。</summary>
+        public string? OutputType { get; set; }
+
         /// <summary>
         /// 启动辅助脚本的入口方法上加的特性。普通 .NET 用 ModuleInitializer；
         /// Unity 等宿主可以换成 <c>global::UnityEngine.RuntimeInitializeOnLoadMethod</c>。
@@ -144,6 +147,9 @@ namespace CSMacro.Engine
         /// 注意：没选中的特性宏不会执行，依赖它们片段的方法宏会拿到更少的片段。
         /// </summary>
         public IReadOnlyCollection<string>? Macros { get; set; }
+
+        /// <summary>运行时清理：去掉导入宏库的无用 using，并报告运行时已经不需要的宏程序集（见 <see cref="ExpandResult.RuntimeUnusedReferences"/>）。</summary>
+        public bool RuntimeCleanup { get; set; } = true;
     }
 
     /// <summary>一次宏展开的记录，用于展开报告和测试。</summary>
@@ -200,6 +206,9 @@ namespace CSMacro.Engine
 
         /// <summary>每一次宏展开的记录（按文件、行排序）。</summary>
         public IReadOnlyList<MacroExpansion> Expansions { get; }
+
+        /// <summary>展开后运行时已经不需要的宏程序集（磁盘路径）。宿主应把它们从编译引用和输出中移除。</summary>
+        public IReadOnlyList<string> RuntimeUnusedReferences { get; set; } = new string[0];
 
         public bool HasErrors => Diagnostics.Exists(d => d.Level == DiagnosticLevel.Error);
     }
