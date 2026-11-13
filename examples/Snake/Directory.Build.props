@@ -1,0 +1,12 @@
+<Project>
+  <!--
+    这个案例是独立项目：这个文件让 MSBuild 不再往上找 CSMacro 仓库自己的 Directory.Build.props，
+    所以它的构建设置和普通外部项目完全一样。
+  -->
+  <PropertyGroup>
+    <!-- 引用的 CSMacro 包版本 -->
+    <CSMacroVersion>0.1.1</CSMacroVersion>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+</Project>

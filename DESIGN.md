@@ -47,8 +47,23 @@ IDE 看到的是三个字段，编译器拿到的是三个带 log 的属性。�
 | Expression 方法宏 | 本来就不引入名字 | 不会发生 |
 | 特性宏 | 不改它标记的声明；产出的片段只能引用源码里已有的名字 | 引用了不存在的名字时报 CSM013 |
 | 片段宏 | 逐成员替换：同 Member 方法宏；整段文本替换：字段和属性的名字、类型不变，成员名字集合不变 | CSM008 / CSM009 |
+| 所有宏的调用处 | 展开前就必须是合法 C#：只有展开后才合法的写法（IDE 会一直标红）不允许 | CSM020 |
 
 宏生成的新名字 IDE 看不见，按这条原则这种宏一律不允许，不去事后补救。
+
+**宏调用处本身的检查（CSM020）**：上面几条约束的是宏的输出，但宏调用处的写法也可能违反原则。
+例如 `public int Hp = @CLAMP(0, MaxHp, 20);`：展开前这是一个字段初始值，不能引用实例成员 `MaxHp`（CS0236），
+IDE 会一直标红；展开后 `MaxHp` 进了 setter，于是能编译。引擎在展开前用原始源码检查每个宏调用（包括特性宏）处的编译错误，
+发现这种"只有展开后才合法"的写法就报 CSM020。
+
+```
+error CSM020: CS0236: A field initializer cannot reference the non-static field, method, or property 'Player.MaxHp' -- this code is only valid after @CLAMP is expanded, so the IDE shows it as an error. The unexpanded source must stay statically correct; rewrite the call so it is valid C# on its own
+```
+
+正确的写法是让调用本身就是合法 C#。比如另写一个用 `nameof` 指定上限成员的宏：`@CLAMP_TO(0, nameof(MaxHp), 20)`。
+字段初始值里允许写 `nameof(实例成员)`，重命名时它也会跟着改；宏再用语义信息检查这个成员存在、类型一致。
+"找不到名字 / 类型 / 成员"这类错误不在这里报：它们展开后同样会被编译器报出来，在这里报的话，
+依赖源码生成器产出类型的项目会误报。
 
 **字段变成属性后的用法检查（CSM017）**：Member 宏和片段宏会把字段变成同名同类型的属性。
 对绝大多数代码这两者等价，但有几种用法只对字段成立。IDE 看到的是字段，不会报错，展开后才编译失败，
@@ -243,7 +258,7 @@ if (!symbol.CanWrite) Macro.Error($"`{path}` is read-only, so {Macro.Name}'s set
 **项目内的宏**：适合起步和小项目。
 
 ```xml
-<PackageReference Include="CSMacro" Version="0.1.0" PrivateAssets="all" />
+<PackageReference Include="CSMacro" Version="0.1.1" PrivateAssets="all" />
 <CSMacroDefinition Include="Macros/**/*.cs" />
 ```
 
@@ -260,10 +275,10 @@ if (!symbol.CanWrite) Macro.Error($"`{path}` is read-only, so {Macro.Name}'s set
 <!-- MyMacros.csproj -->
 <TargetFramework>netstandard2.0</TargetFramework>
 <LangVersion>latest</LangVersion>
-<PackageReference Include="CSMacro" Version="0.1.0" PrivateAssets="all" />
+<PackageReference Include="CSMacro" Version="0.1.1" PrivateAssets="all" />
 
 <!-- 用宏的项目 -->
-<PackageReference Include="CSMacro" Version="0.1.0" PrivateAssets="all" />
+<PackageReference Include="CSMacro" Version="0.1.1" PrivateAssets="all" />
 <ProjectReference Include="../MyMacros/MyMacros.csproj" />
 ```
 
@@ -399,7 +414,7 @@ dotnet test tests/Demo.Macros.Tests
 | `samples/Demo.Macros` | 示例宏（`M.cs` 是方法宏，`Attributes.cs` 是特性宏） |
 | `samples/Demo.App` | 示例控制台程序 |
 | `tests/Demo.Macros.Tests` | 用 CSMacro.Testing 给示例宏写的 xUnit 测试 |
-| `examples/DungeonCrawler` | 接入案例：能玩的终端地牢游戏，独立项目，通过 NuGet 包接入，有自己的宏库 |
+| `examples/Snake` | 接入案例：终端贪吃蛇，独立项目，通过 NuGet 包接入，宏写在项目内 |
 | `pack/CSMacro` | 打包项目：生成 NuGet 包 `CSMacro` |
 
 构建并运行：
@@ -506,6 +521,7 @@ IDE 的 design-time build 会跳过这一步，所以 IDE 看到的永远是原�
 | CSM017 | 对被宏变成属性的字段使用了只对字段成立的写法（ref/out、ref 表达式、取地址、修改结构体副本） |
 | CSM018 | 项目内的宏文件编译不过（常见原因：用了本项目自己的类型） |
 | CSM019 | 业务代码用了项目内宏文件里的普通类型（宏文件只存在于编译期） |
+| CSM020 | 宏调用处的代码只有展开后才合法（展开前有编译错误，IDE 会标红），违反核心原则 |
 | CSM100/101 | 宏自己报的错误/警告 |
 
 ## 已知问题与下一步

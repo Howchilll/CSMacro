@@ -1,0 +1,30 @@
+using Snake.Macros;
+using static Snake.Macros.Properties;
+using static Snake.Macros.SettingsMacros;
+
+namespace Snake;
+
+/// <summary>snake.ini 里的配置：每项一行。解析、校验、错误提示、默认配置文件模板都由宏生成。</summary>
+public sealed class GameSettings
+{
+    [@Setting("width", "Board width")] public int Width = @CLAMP(10, 60, 30);
+    [@Setting("height", "Board height")] public int Height = @CLAMP(6, 30, 15);
+    [@Setting("tick_ms", "Milliseconds per step at the start; smaller is faster")] public int TickMs = @CLAMP(30, 500, 120);
+    [@Setting("wrap_walls", "Leave on one side, come back on the other")] public bool WrapWalls = false;
+
+    public void Apply(IEnumerable<KeyValuePair<string, string>> values, Action<string> report) { @APPLY_SETTINGS(values, report); }
+
+    public string Template() => @SETTINGS_TEMPLATE(this);
+
+    public static GameSettings Load(string path, Action<string> report)
+    {
+        var settings = new GameSettings();
+        if (!File.Exists(path)) return settings;
+        var pairs = File.ReadAllLines(path)
+            .Select(l => l.Trim())
+            .Where(l => l.Length > 0 && !l.StartsWith('#') && l.Contains('='))
+            .Select(l => KeyValuePair.Create(l[..l.IndexOf('=')], l[(l.IndexOf('=') + 1)..]));
+        settings.Apply(pairs, report);
+        return settings;
+    }
+}

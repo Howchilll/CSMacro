@@ -1,0 +1,21 @@
+{
+  // 隐藏编译产物和中间产物，IDE 里只关注源码。
+  // csmacro-dump/ 故意不隐藏：排查宏展开问题时要看它（平时不生成，只有带 -p:CSMacroDump=true 构建时才有）。
+  "files.exclude": {
+    "**/bin": true,
+    "**/obj": true,
+    "**/.csmacro-dump": true,
+    "**/*.sav": true,
+    "**/.DS_Store": true
+  },
+  "search.exclude": {
+    "**/bin": true,
+    "**/obj": true,
+    "**/csmacro-dump": true
+  },
+  "files.watcherExclude": {
+    "**/bin/**": true,
+    "**/obj/**": true
+  },
+  "dotnet.defaultSolution": "Snake.csproj"
+}

@@ -112,6 +112,8 @@ namespace CSMacro.Engine
                 attrs[i] = FindAttributeMacros(targets[i], models[i]);
                 regions[i] = FindRegionMacros(targets[i], diagnostics, out var regionFailed);
                 failed[i] |= regionFailed;
+                // 核心原则兜底：宏调用处的代码在展开前就必须合法
+                if (!CheckUnexpandedSource(targets[i], models[i], calls[i], attrs[i], diagnostics)) failed[i] = true;
 
                 foreach (var c in calls[i].ToList())
                 {

@@ -4,7 +4,7 @@
     <Nullable>enable</Nullable>
 
     <!-- 发布的 NuGet 包版本（CSMacro、CSMacro.Testing） -->
-    <CSMacroVersion>0.1.0</CSMacroVersion>
+    <CSMacroVersion>0.1.1</CSMacroVersion>
 
     <!-- 默认不打包；只有 pack/CSMacro 和 src/CSMacro.Testing 打包 -->
     <IsPackable>false</IsPackable>

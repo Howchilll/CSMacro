@@ -20,10 +20,10 @@ public class Player
 **核心原则：不展开宏，项目在静态上也必须正确。** 名字和类型只能由源码声明，宏只改实现。
 所以 IDE 看到的永远是真相，不需要任何 IDE 插件。
 
-**想看它放进真实项目是什么样子，看 [examples/DungeonCrawler](examples/DungeonCrawler/README.md)**：
-一个真的能玩的终端地牢游戏，作为独立项目通过 NuGet 包接入 CSMacro。它的说明文档从导入、配置一直写到运行，可以当作接入教程。
-游戏源码里 42 行用到宏，生成了 375 行代码：数值约束、变更通知、存档、作弊控制台、配置文件绑定、
-Debug 才有的断言、按需打开的 AI 跟踪。运行时程序里没有任何宏的痕迹。
+**想看它放进真实项目是什么样子，看 [examples/Snake](examples/Snake/README.md)**：
+一个终端贪吃蛇，游戏逻辑刻意保持简单，篇幅留给宏。它作为独立项目通过 NuGet 包接入 CSMacro，宏直接写在项目的 `Macros/` 里，
+说明文档从导入、配置一直写到运行，可以当作接入教程。游戏里 24 行用到宏，生成了 171 行代码：
+变更通知、数值约束、按键绑定、配置文件、存档、Debug 才有的断言、按需打开的状态跟踪。运行时程序里没有任何宏的痕迹。
 
 更小的例子见 [samples/Showcase](samples/Showcase/README.md)：一个 RPG 角色模块。
 
@@ -35,7 +35,7 @@ CSMacro 以 NuGet 包的形式使用。**引用包、加一行配置，就可以
 
 ```xml
 <ItemGroup>
-  <PackageReference Include="CSMacro" Version="0.1.0" PrivateAssets="all" />
+  <PackageReference Include="CSMacro" Version="0.1.1" PrivateAssets="all" />
   <CSMacroDefinition Include="Macros/**/*.cs" />
 </ItemGroup>
 ```
@@ -106,7 +106,7 @@ dotnet pack src/CSMacro.Testing -c Release
 ## 在这个仓库里构建
 
 需要 .NET 10 SDK。`samples/` 和 `tests/` 直接引用源码（`build/CSMacro.targets` 会从源码构建展开工具），不需要先打包。
-`examples/DungeonCrawler` 是独立项目，有自己的解决方案，通过 NuGet 包接入，需要先运行 `dotnet pack pack/CSMacro -c Release`。
+`examples/` 下的案例是独立项目，通过 NuGet 包接入，需要先运行 `dotnet pack pack/CSMacro -c Release`。
 
 ```bash
 # 构建并运行示例
@@ -129,7 +129,7 @@ dotnet build samples/Demo.App -p:CSMacroDumpFiles=Player.cs -p:CSMacroDumpMacros
 | `src/CSMacro.Testing` | 给宏作者用的测试工具（NuGet 包 `CSMacro.Testing`） |
 | `pack/CSMacro` | 打包项目：生成 NuGet 包 `CSMacro` |
 | `build/CSMacro.targets` | MSBuild 接入 |
-| `examples/DungeonCrawler` | 接入案例：一个能玩的终端地牢游戏，独立项目，通过 NuGet 包接入（不在主解决方案里） |
+| `examples/Snake` | 接入案例：终端贪吃蛇，独立项目，通过 NuGet 包接入，宏写在项目内（不在主解决方案里） |
 | `samples/Showcase` | 价值展示：RPG 角色模块 |
 | `samples/Demo.*` | 各项功能的基础示例 |
 | `tests/` | 示例宏的单元测试 |
