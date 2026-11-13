@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    这个游戏自己的宏库：规则是为这个项目定制的。
+    一个普通的 netstandard2.0 类库，引用 CSMacro 包就能写宏。
+  -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CSMacro" Version="$(CSMacroVersion)" PrivateAssets="all" />
+  </ItemGroup>
+
+</Project>

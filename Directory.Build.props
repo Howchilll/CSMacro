@@ -2,5 +2,15 @@
   <PropertyGroup>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
+
+    <!-- 发布的 NuGet 包版本（CSMacro、CSMacro.Testing） -->
+    <CSMacroVersion>0.1.0</CSMacroVersion>
+
+    <!-- 默认不打包；只有 pack/CSMacro 和 src/CSMacro.Testing 打包 -->
+    <IsPackable>false</IsPackable>
+    <PackageOutputPath>$(MSBuildThisFileDirectory)artifacts/packages</PackageOutputPath>
+    <Authors>CSMacro contributors</Authors>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageTags>macro;metaprogramming;roslyn;msbuild;codegen</PackageTags>
   </PropertyGroup>
 </Project>

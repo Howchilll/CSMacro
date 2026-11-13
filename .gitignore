@@ -18,3 +18,9 @@ TestResults/
 
 # 系统
 .DS_Store
+
+# 示例游戏运行时生成的存档
+*.sav
+
+# NuGet 包输出
+artifacts/

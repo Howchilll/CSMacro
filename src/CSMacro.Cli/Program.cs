@@ -21,6 +21,8 @@ using CSMacro.Engine;
 //   --dump:<目录>          另外把展开结果写到这个目录（逐行对齐的源文件 + 辅助脚本 + _expansions.txt 报告），用来排查问题
 //   --dump-files:<a;b>     只写出这些文件（相对路径或文件名，支持 * 和 **）
 //   --dump-macros:<a;b>    dump 时只展开这些宏，其余保持原样（不影响真正参与编译的结果）
+//   -m:<文件>              项目内的宏定义文件（MSBuild CSMacroDefinition）：先单独编译，再从正式编译里拿掉
+//   --local-macros-out:<dll>  项目内宏编译成的临时程序集路径
 
 var sources = new List<string>();
 var references = new List<string>();
@@ -29,11 +31,15 @@ string? outDir = null, originalsFile = null, expandedFile = null, langVersion = 
 var verify = true;
 string? dumpDir = null, runtimeUnusedFile = null;
 List<string>? dumpFiles = null, dumpMacros = null;
+var macroDefinitions = new List<string>();
+string? localMacrosOut = null;
 
 foreach (var arg in ExpandResponseFiles(args))
 {
     if (TryValue(arg, "-s:", out var v)) sources.Add(v);
     else if (TryValue(arg, "-r:", out v)) references.Add(v);
+    else if (TryValue(arg, "-m:", out v)) macroDefinitions.Add(v);
+    else if (TryValue(arg, "--local-macros-out:", out v)) localMacrosOut = v;
     else if (TryValue(arg, "-d:", out v)) defines.AddRange(v.Split(';', ',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
     else if (TryValue(arg, "--langversion:", out v)) langVersion = v;
     else if (TryValue(arg, "--nullable:", out v)) nullable = v;
@@ -58,10 +64,27 @@ if (outDir == null || originalsFile == null || expandedFile == null)
 
 // 保险：dump 目录（有标记文件）里的副本绝不能再被当成源码，从编译里拿掉
 var dumpCopies = sources.Where(InsideDumpDirectory).ToList();
+
+// 项目内的宏定义文件：不参与展开，先单独编译成临时程序集（展开时从这里加载宏），再从正式编译里拿掉
+var definitionPaths = new HashSet<string>(macroDefinitions.Select(Path.GetFullPath));
+var definitionSources = sources.Where(s => definitionPaths.Contains(Path.GetFullPath(s))).ToList();
+
 var inputs = sources
     .Except(dumpCopies)
+    .Except(definitionSources)
     .Select(id => new SourceFile(id, Path.GetFullPath(id), File.ReadAllText(id)))
     .ToList();
+
+if (macroDefinitions.Count > 0)
+{
+    if (localMacrosOut == null) { Console.Error.WriteLine("csmacro: -m requires --local-macros-out"); return 2; }
+    localMacrosOut = Path.GetFullPath(localMacrosOut);
+    var definitions = macroDefinitions.Select(f => new SourceFile(f, Path.GetFullPath(f), File.ReadAllText(f))).ToList();
+    var localDiagnostics = LocalMacros.Compile(definitions, MakeOptions(null), Path.GetFileNameWithoutExtension(localMacrosOut), localMacrosOut);
+    foreach (var d in localDiagnostics) Console.WriteLine(d);
+    if (localDiagnostics.Any(d => d.Level == DiagnosticLevel.Error)) return 1;
+    references.Add(localMacrosOut);
+}
 
 var invoker = new ReflectionInvoker(references);
 ExpandOptions MakeOptions(IReadOnlyCollection<string>? macros) => new ExpandOptions
@@ -96,6 +119,15 @@ if (dumpDir != null)
 
 if (result.HasErrors) return 1;
 
+// 宏定义文件只存在于编译期：展开后的代码不能再依赖它们（比如用了宏文件里的普通辅助类型）
+if (localMacrosOut != null && result.RuntimeAnalysisReliable && !result.RuntimeUnusedReferences.Any(p => Path.GetFullPath(p) == localMacrosOut))
+{
+    Console.WriteLine($"{Path.GetFullPath(macroDefinitions[0])}(1,1): error CSM019: code in this project still uses types from the macro definition files " +
+                      $"({string.Join(", ", macroDefinitions.Select(Path.GetFileName))}). Macro definition files exist only at compile time; " +
+                      "move shared helpers into a regular source file, or into a separate macro library");
+    return 1;
+}
+
 Directory.CreateDirectory(outDir);
 var originals = new List<string>();
 var expanded = new List<string>();
@@ -107,7 +139,8 @@ foreach (var file in result.Files)
     originals.Add(file.Id);
     expanded.Add(dest);
 }
-originals.AddRange(dumpCopies); // 只出现在 originals 清单里 = 从 @(Compile) 中移除
+originals.AddRange(dumpCopies);        // 只出现在 originals 清单里 = 从 @(Compile) 中移除
+originals.AddRange(definitionSources); // 宏定义文件同样从正式编译里拿掉
 foreach (var file in result.GeneratedFiles)
 {
     var dest = Path.GetFullPath(Path.Combine(outDir, "generated", file.Name));

@@ -210,6 +210,12 @@ namespace CSMacro.Engine
         /// <summary>展开后运行时已经不需要的宏程序集（磁盘路径）。宿主应把它们从编译引用和输出中移除。</summary>
         public IReadOnlyList<string> RuntimeUnusedReferences { get; set; } = new string[0];
 
+        /// <summary>
+        /// 运行时清理的分析是否可靠。分析用的编译有错误（比如依赖源码生成器产出的类型）时，
+        /// Roslyn 会把所有引用都算作用到了，此时 <see cref="RuntimeUnusedReferences"/> 偏保守（什么都不去掉）。
+        /// </summary>
+        public bool RuntimeAnalysisReliable { get; set; }
+
         public bool HasErrors => Diagnostics.Exists(d => d.Level == DiagnosticLevel.Error);
     }
 

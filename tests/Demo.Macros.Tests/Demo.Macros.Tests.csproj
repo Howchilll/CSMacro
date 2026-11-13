@@ -16,6 +16,8 @@
   <ItemGroup>
     <ProjectReference Include="../../samples/Demo.Macros/Demo.Macros.csproj" />
     <ProjectReference Include="../../src/CSMacro.Testing/CSMacro.Testing.csproj" />
+    <!-- CSMacro.Testing 对引擎的引用是 PrivateAssets（引擎打进 NuGet 包里，不单独发包），源码引用时要直接引用一下 -->
+    <ProjectReference Include="../../src/CSMacro.Engine/CSMacro.Engine.csproj" />
   </ItemGroup>
 
 </Project>

@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- dotnet build -p:TraceAI=true：打开 #region @TRACE_AI 的 AI 状态跟踪（不加就完全不生成跟踪代码） -->
+    <DefineConstants Condition="'$(TraceAI)' == 'true'">$(DefineConstants);TRACE_AI</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- 接入 CSMacro：引用 CSMacro 包 + 引用宏库。编译前展开宏，运行时不留任何依赖。 -->
+    <PackageReference Include="CSMacro" Version="$(CSMacroVersion)" PrivateAssets="all" />
+    <ProjectReference Include="../Dungeon.Macros/Dungeon.Macros.csproj" />
+
+    <None Update="dungeon.ini" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

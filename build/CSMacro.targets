@@ -15,7 +15,10 @@
       CSMacroDumpFiles=<a b>   只写出这些文件（相对路径或文件名，支持 * 和 **）；设置后自动开启 dump
       CSMacroDumpMacros=<a b>  dump 时只展开这些宏，其余保持原样；设置后自动开启 dump
       CSMacroRuntimeCleanup=false  不做运行时清理（默认会把运行时用不到的宏程序集从引用和输出中移除）
-    展开工具（CSMacro.Cli）由这里自动构建，使用方不需要引用它。
+    项目内的宏：<CSMacroDefinition Include="Macros/**/*.cs" />。这些文件先单独编译成临时程序集（展开时从这里加载宏），
+      再从正式编译里拿掉；IDE 里照常可见。它们只能用 CSMacro 的 API 和引用的库，不能用本项目自己的类型。
+    展开工具（CSMacro.Cli）：作为 NuGet 包使用时用包里预编译好的；在源码仓库里使用时由这里自动构建。
+      使用方都不需要引用它。
     IDE 的 design-time build 跳过这一步，所以 IDE 看到的是原文件：宏就是一个普通方法调用。
   -->
 
@@ -23,6 +26,10 @@
     <CSMacroEnabled Condition="'$(CSMacroEnabled)' == ''">true</CSMacroEnabled>
     <CSMacroRuntimeCleanup Condition="'$(CSMacroRuntimeCleanup)' == ''">true</CSMacroRuntimeCleanup>
     <_CSMacroCliProject>$(MSBuildThisFileDirectory)../src/CSMacro.Cli/CSMacro.Cli.csproj</_CSMacroCliProject>
+    <!-- NuGet 包模式：tools/ 里有预编译好的展开工具 -->
+    <_CSMacroPackagedCli>$(MSBuildThisFileDirectory)../tools/net10.0/CSMacro.Cli.dll</_CSMacroPackagedCli>
+    <CSMacroCliPath Condition="'$(CSMacroCliPath)' == '' and Exists('$(_CSMacroPackagedCli)')">$(_CSMacroPackagedCli)</CSMacroCliPath>
+    <!-- 源码模式：从源码构建展开工具 -->
     <_CSMacroBuildCli Condition="'$(CSMacroCliPath)' == ''">true</_CSMacroBuildCli>
     <CSMacroCliPath Condition="'$(CSMacroCliPath)' == ''">$(MSBuildThisFileDirectory)../src/CSMacro.Cli/bin/$(Configuration)/net10.0/CSMacro.Cli.dll</CSMacroCliPath>
     <CSMacroDotnet Condition="'$(CSMacroDotnet)' == '' and '$(DOTNET_HOST_PATH)' != ''">$(DOTNET_HOST_PATH)</CSMacroDotnet>
@@ -67,6 +74,8 @@
       <_CSMacroArg Include="--dump:$(CSMacroDumpDir)" Condition="'$(CSMacroDump)' == 'true'" />
       <_CSMacroArg Include="--dump-files:$([MSBuild]::Escape($(CSMacroDumpFiles)))" Condition="'$(CSMacroDumpFiles)' != ''" />
       <_CSMacroArg Include="--dump-macros:$([MSBuild]::Escape($(CSMacroDumpMacros)))" Condition="'$(CSMacroDumpMacros)' != ''" />
+      <_CSMacroArg Include="@(CSMacroDefinition->'-m:%(FullPath)')" />
+      <_CSMacroArg Include="--local-macros-out:$(_CSMacroDir)$(AssemblyName).CSMacroLocal.dll" Condition="'@(CSMacroDefinition)' != ''" />
       <_CSMacroArg Include="@(Compile->'-s:%(Identity)')" />
       <_CSMacroArg Include="@(ReferencePath->'-r:%(FullPath)')" />
     </ItemGroup>

@@ -21,7 +21,7 @@ namespace CSMacro.Engine
     {
         private const string AbstractionsAssemblyName = "CSMacro.Abstractions";
 
-        private static (SyntaxTree[] Trees, List<string> Unused) RuntimeCleanup(
+        private static (SyntaxTree[] Trees, List<string> Unused, bool Reliable) RuntimeCleanup(
             CSharpCompilation compilation, SyntaxTree[] originals, IReadOnlyList<SyntaxTree> expanded, string? startupCode, CSharpParseOptions parseOptions)
         {
             var current = expanded.ToArray();
@@ -30,7 +30,7 @@ namespace CSMacro.Engine
                     .Select(r => compilation.GetAssemblyOrModuleSymbol(r) as IAssemblySymbol)
                     .Where(a => a != null && (a.Name == AbstractionsAssemblyName || ContainsMacros(a.GlobalNamespace)))!,
                 SymbolEqualityComparer.Default);
-            if (macroAssemblies.Count == 0) return (current, new List<string>());
+            if (macroAssemblies.Count == 0) return (current, new List<string>(), true);
 
             // 展开后的编译（含启动脚本）
             var after = compilation;
@@ -64,6 +64,7 @@ namespace CSMacro.Engine
             // 1. 编译有任何错误。所以分析用的编译要和真实编译一致（输出类型、Nullable 等由宿主传入）。
             // 2. 没有解析文档注释（DocumentationMode.None）：无法判断 <see cref> 引用了什么。所以展开时用 DocumentationMode.Parse。
             var used = new HashSet<MetadataReference>(after.GetUsedAssemblyReferences());
+            var reliable = !after.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error);
             var unused = macroAssemblies.Where(a => after.GetMetadataReference(a) is { } r && !used.Contains(r)).ToList();
 
             // 仍被其他运行时依赖引用的不能去掉
@@ -79,7 +80,7 @@ namespace CSMacro.Engine
                 .Where(p => p != null)
                 .Select(p => p!)
                 .ToList();
-            return (current, paths);
+            return (current, paths, reliable);
         }
 
         private static bool ContainsMacros(INamespaceOrTypeSymbol container)

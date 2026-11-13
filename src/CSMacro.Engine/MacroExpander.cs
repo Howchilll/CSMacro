@@ -65,8 +65,9 @@ namespace CSMacro.Engine
             // 运行时清理：去掉导入宏库的无用 using，找出运行时已经不需要的宏程序集
             IReadOnlyList<SyntaxTree> finalTrees = result.Expanded;
             var runtimeUnused = new List<string>();
+            var reliable = false;
             if (options.RuntimeCleanup && !diagnostics.Exists(d => d.Level == DiagnosticLevel.Error))
-                (finalTrees, runtimeUnused) = RuntimeCleanup(compilation, trees, result.Expanded, result.StartupCode, parseOptions);
+                (finalTrees, runtimeUnused, reliable) = RuntimeCleanup(compilation, trees, result.Expanded, result.StartupCode, parseOptions);
 
             var files = new List<ExpandedFile>();
             for (var i = 0; i < sources.Count; i++)
@@ -79,7 +80,7 @@ namespace CSMacro.Engine
             var generated = new List<GeneratedFile>();
             if (result.StartupCode != null) generated.Add(new GeneratedFile(StartupFileName, result.StartupCode));
 
-            return new ExpandResult(files, generated, diagnostics, result.Expansions) { RuntimeUnusedReferences = runtimeUnused };
+            return new ExpandResult(files, generated, diagnostics, result.Expansions) { RuntimeUnusedReferences = runtimeUnused, RuntimeAnalysisReliable = reliable };
         }
 
         /// <summary>
