@@ -37,11 +37,12 @@ HowMacro is used as a NuGet package. **Reference the package, add one line of co
 dotnet add package HowMacro --prerelease
 ```
 
-Then tell HowMacro which folder holds your macros. The project file ends up with:
+Then mark the reference compile-time only (`PrivateAssets="all"`, so it never flows to projects that reference yours)
+and tell HowMacro which folder holds your macros. The project file ends up with:
 
 ```xml
 <ItemGroup>
-  <PackageReference Include="HowMacro" Version="0.1.1-preview" PrivateAssets="all" />
+  <PackageReference Include="HowMacro" Version="0.1.2-preview" PrivateAssets="all" />
   <HowMacroDefinition Include="Macros/**/*.cs" />
 </ItemGroup>
 ```

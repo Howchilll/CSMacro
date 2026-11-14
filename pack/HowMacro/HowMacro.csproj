@@ -18,8 +18,8 @@
     <!-- This project has no code of its own; it only assembles the package -->
     <IncludeBuildOutput>false</IncludeBuildOutput>
     <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
-    <!-- Compile-time only: dotnet add package adds PrivateAssets="all" automatically -->
-    <DevelopmentDependency>true</DevelopmentDependency>
+    <!-- Deliberately NOT a DevelopmentDependency: for those, `dotnet add package` writes an IncludeAssets line
+         without "compile", which hides the HowMacro API from macro files. Consumers add PrivateAssets="all" themselves. -->
     <!-- NU5128/NU5131: the package intentionally has only ref/ (compile-time reference) and no lib/ (runtime); this is expected -->
     <NoWarn>$(NoWarn);NU5100;NU5128;NU5131</NoWarn>
     <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);HowMacroPackageFiles</TargetsForTfmSpecificContentInPackage>

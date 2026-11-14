@@ -24,6 +24,17 @@ namespace HowMacro.Engine
         /// </summary>
         public static List<MacroDiagnostic> Compile(IReadOnlyList<SourceFile> files, ExpandOptions options, string assemblyName, string outputPath)
         {
+            // Without the API assembly every macro file fails with confusing "type not found" errors; say what's actually wrong.
+            if (!options.References.Any(r => Path.GetFileNameWithoutExtension(r) == "HowMacro.Abstractions"))
+                return new List<MacroDiagnostic>
+                {
+                    new MacroDiagnostic(DiagnosticLevel.Error, "HMC018",
+                        "macro definition files need the HowMacro API, but HowMacro.Abstractions isn't referenced. " +
+                        "Check the HowMacro PackageReference: it must not exclude compile assets (an <IncludeAssets> list without 'compile'); " +
+                        "<PackageReference Include=\"HowMacro\" Version=\"...\" PrivateAssets=\"all\" /> is enough",
+                        files[0].Path, 1, 1),
+                };
+
             var parseOptions = new CSharpParseOptions(
                 LanguageVersionFacts.TryParse(options.LanguageVersion, out var v) ? v : LanguageVersion.Preview,
                 DocumentationMode.Parse,
