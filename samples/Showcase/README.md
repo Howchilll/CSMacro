@@ -1,15 +1,15 @@
-# Showcase：一个 RPG 角色模块
+# Showcase: an RPG character module
 
-这个示例用一个很常见的游戏模块，展示 CSMacro 能解决的问题：**设计模式消除不了的样板代码**。
-这类代码每个项目都要写，写起来几乎一样，而且很容易漏掉或写错。
+This sample uses a very common game module to show the problem HowMacro solves: **boilerplate that design patterns can't remove**.
+Every project writes this kind of code, it looks almost the same every time, and it is easy to forget a piece or get it wrong.
 
 ```bash
 dotnet build samples/Showcase/Showcase.App && dotnet samples/Showcase/Showcase.App/bin/Debug/net10.0/Showcase.App.dll
 ```
 
-## 你写的代码
+## The code you write
 
-`Hero.cs`：一个要绑定 UI、要约束数值范围、要存档的数据类。
+`Hero.cs`: a data class that binds to UI, clamps its values and gets saved.
 
 ```csharp
 public class Hero : INotifyPropertyChanged
@@ -22,14 +22,14 @@ public class Hero : INotifyPropertyChanged
     [@Persist] public int Level = @CLAMP(1, 99, 1);
     [@Persist] public int Hp = @CLAMP(0, 100, 100);
     [@Persist] public int Gold = @CLAMP(0, 999_999, 0);
-    public int Combo = @CLAMP(0, 10, 0); // 只是运行时状态，不存档
+    public int Combo = @CLAMP(0, 10, 0); // runtime state only, not saved
 
     public void Save(BinaryWriter writer) { @WRITE_PERSISTED(writer); }
     public void Load(BinaryReader reader) { @READ_PERSISTED(reader); }
 }
 ```
 
-`Cheats.cs`：调试命令。写一个静态方法，标上 `[@Command]` 就完成了。
+`Cheats.cs`: debug commands. Write a static method, mark it with `[@Command]`, done.
 
 ```csharp
 [@Command("heal", "Restore HP (clamped to 100)")]
@@ -42,27 +42,27 @@ public static void SetClass(HeroClass value) => Hero.Class = value;
 public static void SetLevel(int value = 99) => Hero.Level = value;
 ```
 
-每个成员、每个命令都只占一行：名字、类型、初值、范围、要不要存档，一眼就能看完。
-按核心原则，这些名字和类型都由源码声明，IDE 的补全、跳转、重命名都照常可用。
+Every member and every command takes one line: name, type, initial value, range and whether it is saved, all visible at a glance.
+Following the core principle, these names and types are declared in source, so IDE completion, navigation and rename all keep working.
 
-## 宏替你写的代码
+## The code macros write for you
 
-数据来自 `-p:CSMacroDump=true` 生成的展开报告，按格式化后的行数统计：
+Numbers come from the expansion report produced by `-p:HowMacroDump=true`, counted in formatted lines:
 
-| 宏 | 用了几处 | 生成的代码（行） | 做了什么 |
+| Macro | Uses | Generated code (lines) | What it does |
 |---|---|---|---|
-| `@CLAMP` | 4 | 48 | 后备字段、夹值、相等判断；所在类支持通知时顺带发通知 |
-| `@OBSERVABLE` | 2 | 22 | 后备字段、相等判断、变更通知 |
-| `[@Persist]` + `@WRITE_PERSISTED` / `@READ_PERSISTED` | 5 + 2 | 17 | 强类型的二进制读写、存档格式指纹 |
-| `[@Command]` + `@COMMAND_HELP` | 7 + 1 | 49 | 参数解析、可选参数、用法提示、启动时注册、帮助表 |
-| **合计** | **16 行源码** | **136 行** | |
+| `@CLAMP` | 4 | 48 | Backing field, clamping, equality check; also notifies when the type supports change notification |
+| `@OBSERVABLE` | 2 | 22 | Backing field, equality check, change notification |
+| `[@Persist]` + `@WRITE_PERSISTED` / `@READ_PERSISTED` | 5 + 2 | 17 | Strongly typed binary read/write, save-format fingerprint |
+| `[@Command]` + `@COMMAND_HELP` | 7 + 1 | 49 | Argument parsing, optional arguments, usage messages, registration at startup, help table |
+| **Total** | **16 source lines** | **136 lines** | |
 
-也就是说，**源码里 16 行用到了宏，替你生成了 136 行原本要手写的代码**。
+In other words, **16 lines of source use macros, and they generate 136 lines you would otherwise write by hand**.
 
-更重要的是维护成本。手写时，给 Hero 加一个存档字段要同时改四个地方：声明、Save、Load、版本号。
-漏掉任何一处都不会编译报错，只会在运行时读出错位的数据。用了宏，只需要在声明上加一个 `[@Persist]`。
+Maintenance cost matters even more. By hand, adding a saved field to Hero means touching four places at once: the declaration, Save, Load and the version number.
+Missing any of them is not a compile error; you only find out at runtime when the data is read out of order. With macros, you add one `[@Persist]` to the declaration.
 
-生成的代码大致是这样（摘自报告）：
+The generated code looks roughly like this (excerpts from the report):
 
 ```csharp
 // @CLAMP(1, 99, 1)
@@ -75,13 +75,13 @@ public int Level
         if (field == __clamped)
             return;
         field = __clamped;
-        OnPropertyChanged(nameof(Level));   // Hero 有 OnPropertyChanged，所以自动加上
+        OnPropertyChanged(nameof(Level));   // added automatically because Hero has OnPropertyChanged
     }
 } = 1;
 
 // @READ_PERSISTED(reader)
 {
-    if (reader.ReadInt32() != 1610718114)   // 编译期根据存档字段算出的格式指纹
+    if (reader.ReadInt32() != 1610718114)   // save-format fingerprint computed at compile time from the saved fields
         throw new InvalidDataException("save format changed; this build expects: Name:string, Class:Showcase.App.HeroClass, Level:int, Hp:int, Gold:int");
     this.Name = reader.ReadString();
     this.Class = (global::Showcase.App.HeroClass)reader.ReadInt32();
@@ -89,7 +89,7 @@ public int Level
     ...
 }
 
-// [@Command("level", ...)]：生成到启动辅助脚本里
+// [@Command("level", ...)]: generated into the startup script
 DebugConsole.Register("level", "level [value:int=99]", "Set level; defaults to max", a =>
 {
     if (a.Length < 0 || a.Length > 1) throw new ArgumentException();
@@ -98,45 +98,45 @@ DebugConsole.Register("level", "level [value:int=99]", "Set level; defaults to m
 });
 ```
 
-## 写错了会怎样：编译期就报错
+## Mistakes are caught at compile time
 
-宏可以借助语义信息检查用法。下面是故意写错时的真实输出，每条都报在写错的那一行上：
+Macros can use semantic information to check how they are used. Here is the real output from deliberate mistakes, each reported on the offending line:
 
 ```
-error CSM100: @CLAMP: initial value 150 of Mana is outside [0, 100]
-error CSM100: @CLAMP: @CLAMP needs a numeric member, but Title is string
-error CSM100: @OBSERVABLE: Bad must declare `void OnPropertyChanged(string propertyName)` for @OBSERVABLE to call
-error CSM100: [@Persist]: Items has type System.Collections.Generic.List<int>, which [@Persist] can't store; supported: int, long, float, double, bool, string, enums
-error CSM100: [@Persist]: Seed is read-only, so [@Persist] couldn't load it back
-error CSM100: [@Command]: [@Command] method Dance must be static: commands are registered at startup, before any instance exists
-error CSM100: [@Command]: parameter 'h' of Spawn has type Showcase.App.Hero, which [@Command] can't parse; supported: int, long, float, double, bool, string, enums
-error CSM100: @COMMAND_HELP: command 'heal' is registered more than once: Showcase.App.MoreCheats.FullHeal (Bad.cs:5) and Showcase.App.Cheats.Heal (Cheats.cs:13)
+error HMC100: @CLAMP: initial value 150 of Mana is outside [0, 100]
+error HMC100: @CLAMP: @CLAMP needs a numeric member, but Title is string
+error HMC100: @OBSERVABLE: Bad must declare `void OnPropertyChanged(string propertyName)` for @OBSERVABLE to call
+error HMC100: [@Persist]: Items has type System.Collections.Generic.List<int>, which [@Persist] can't store; supported: int, long, float, double, bool, string, enums
+error HMC100: [@Persist]: Seed is read-only, so [@Persist] couldn't load it back
+error HMC100: [@Command]: [@Command] method Dance must be static: commands are registered at startup, before any instance exists
+error HMC100: [@Command]: parameter 'h' of Spawn has type Showcase.App.Hero, which [@Command] can't parse; supported: int, long, float, double, bool, string, enums
+error HMC100: @COMMAND_HELP: command 'heal' is registered more than once: Showcase.App.MoreCheats.FullHeal (Bad.cs:5) and Showcase.App.Cheats.Heal (Cheats.cs:13)
 ```
 
-这些问题如果用手写代码或反射实现，大多要到运行时才会暴露，有的甚至根本不会暴露（比如两个同名命令互相覆盖）。
+With handwritten code or reflection, most of these problems only surface at runtime, and some never surface at all (for example two commands with the same name silently overriding each other).
 
-## 为什么不用别的办法
+## Why not something else
 
-| 办法 | 问题 |
+| Approach | Problem |
 |---|---|
-| 继承 / 组合等设计模式 | 能共享逻辑，但每个属性的后备字段、setter、存档读写那几行还是要逐个写 |
-| 运行时反射（自动存档、自动注册命令） | 有运行时开销；IL2CPP / AOT 裁剪会把"没被直接引用"的方法删掉，命令就丢了；错误只能在运行时发现 |
-| 源码生成器（Source Generator） | 只能新增代码，不能改写已有代码，做不到"把字段变成带逻辑的属性"；要求到处加 `partial`；写起来门槛高 |
-| CSMacro | 生成的是普通的强类型代码，没有反射；IDE 看到的名字和类型永远正确；宏本身就是普通 C# 方法，门槛低 |
+| Design patterns such as inheritance or composition | They share logic, but each property's backing field, setter and save/load lines still have to be written one by one |
+| Runtime reflection (automatic saving, automatic command registration) | Runtime cost; IL2CPP / AOT trimming removes methods that aren't referenced directly, so commands disappear; errors only show up at runtime |
+| Source generators | Can only add code, not rewrite existing code, so they can't "turn a field into a property with logic"; require `partial` everywhere; high barrier to writing them |
+| HowMacro | Generates plain strongly typed code with no reflection; the names and types the IDE sees are always correct; a macro is just an ordinary C# method, so the barrier is low |
 
-另外，这些宏是为这个项目定制的（比如 `[@Command]` 注册到本项目的 `DebugConsole`），这正是 CSMacro 的用法：
-**规则由项目自己定义**，而不是使用一套通用的框架约定。
+Also, these macros are tailored to this project (for example `[@Command]` registers with this project's `DebugConsole`). That is exactly how HowMacro is meant to be used:
+**the project defines its own rules**, instead of adopting a general-purpose framework's conventions.
 
-## 自己动手看展开结果
+## See the expansion yourself
 
 ```bash
-# 全部展开结果
-dotnet build samples/Showcase/Showcase.App -p:CSMacroDump=true
+# Everything that was expanded
+dotnet build samples/Showcase/Showcase.App -p:HowMacroDump=true
 
-# 只看 Hero.cs 里存档相关的宏
-dotnet build samples/Showcase/Showcase.App -p:CSMacroDumpFiles=Hero.cs -p:CSMacroDumpMacros="Persist WRITE_PERSISTED READ_PERSISTED"
+# Only the save-related macros in Hero.cs
+dotnet build samples/Showcase/Showcase.App -p:HowMacroDumpFiles=Hero.cs -p:HowMacroDumpMacros="Persist WRITE_PERSISTED READ_PERSISTED"
 ```
 
-结果在 `samples/Showcase/Showcase.App/csmacro-dump/`，展开报告是其中的 `_expansions.txt`。
+The output goes to `samples/Showcase/Showcase.App/howmacro-dump/`; the expansion report is `_expansions.txt` inside it.
 
-宏的实现在 `Showcase.Macros/`：`Properties.cs`（OBSERVABLE / CLAMP）、`Persistence.cs`（存档）、`Commands.cs`（调试命令）。
+The macro implementations are in `Showcase.Macros/`: `Properties.cs` (OBSERVABLE / CLAMP), `Persistence.cs` (saving) and `Commands.cs` (debug commands).

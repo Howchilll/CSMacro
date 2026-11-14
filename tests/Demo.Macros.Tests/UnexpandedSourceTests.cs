@@ -1,18 +1,18 @@
-using CSMacro.Testing;
+using HowMacro.Testing;
 using Xunit;
 
 namespace Demo.Macros.Tests;
 
 /// <summary>
-/// 核心原则兜底（CSM020）：宏调用处的代码在展开前就必须是合法 C#。
-/// 只有展开后才合法的写法（IDE 会一直标红）要在构建时报错，而不是悄悄通过。
+/// Core principle backstop (HMC020): code at a macro call site must be valid C# before expansion.
+/// Code that only compiles after expansion (which the IDE keeps flagging) must fail the build instead of passing silently.
 /// </summary>
 public class UnexpandedSourceTests
 {
     private static MacroTestResult Expand(string source) =>
         MacroTest.Expand(source, new MacroTestOptions { References = { typeof(M).Assembly } });
 
-    // 占 4 行；拼上 """ 开头的下一段后，那一段的第一行就是第 5 行。
+    // 4 lines; when the next """ block is appended, its first line is line 5.
     private const string Header = """
         using Demo.Macros;
         using static Demo.Macros.M;
@@ -23,7 +23,7 @@ public class UnexpandedSourceTests
     [Fact]
     public void Instance_member_in_a_field_initializer_is_reported()
     {
-        // 展开前：字段初始值引用实例成员 Backing → CS0236；展开后 Backing 进了 getter/setter，能编译。
+        // Before expansion: a field initializer referencing the instance member Backing → CS0236; after expansion Backing moves into the getter/setter and compiles.
         var r = Expand(Header + """
 
             public class Player
@@ -33,7 +33,7 @@ public class UnexpandedSourceTests
             }
             """);
 
-        var d = r.AssertError("CSM020", contains: "CS0236", line: 8);
+        var d = r.AssertError("HMC020", contains: "CS0236", line: 8);
         Assert.Contains("only valid after @GETSET is expanded", d.Message);
     }
 
@@ -49,7 +49,7 @@ public class UnexpandedSourceTests
             }
             """);
 
-        r.AssertError("CSM020", contains: "only valid after [@Save] is expanded", line: 8);
+        r.AssertError("HMC020", contains: "only valid after [@Save] is expanded", line: 8);
     }
 
     [Fact]
@@ -60,7 +60,7 @@ public class UnexpandedSourceTests
             public static class Data { public static int Hp = 1; }
             public class Player
             {
-                public int Hp = @GETSET(Data.Hp);   // 静态成员：展开前也合法
+                public int Hp = @GETSET(Data.Hp);   // static member: valid before expansion too
                 public int Gold = @LOGGED(10);
             }
             """).AssertSuccess();

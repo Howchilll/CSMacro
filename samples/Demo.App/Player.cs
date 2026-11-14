@@ -16,13 +16,13 @@ public class PlayerData
 
 public class Player
 {
-    // 方法宏：IDE 眼里这是个字段，编译器拿到的是转发属性。
-    // 特性宏 [@Track] 和方法宏 @GETSET 写在同一行，各自生效。
+    // Method macro: the IDE sees a field, the compiler gets a forwarding property.
+    // Attribute macro [@Track] and method macro @GETSET on the same line; each takes effect.
     [@Track] public int Hp = @GETSET(DataCenter.PlayerData.Hp);
     public int Mp = @GETSET(DataCenter.PlayerData.Mp);
 
-    // 统一规则：这些属性改变时自动打 log。
-    // [@Save] 让字段自动进入存档容器，[@Save("lv")] 指定存档里的键名。
+    // One shared rule: these properties log every change.
+    // [@Save] registers the field with the save container; [@Save("lv")] sets the key used in the save.
     [@Track, @Save] public int Gold = @LOGGED(100);
     [@Save("lv")] public int Level = @LOGGED(1);
     public string Title = @LOGGED("Novice");

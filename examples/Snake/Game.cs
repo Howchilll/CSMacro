@@ -17,7 +17,7 @@ public sealed class Game
 {
     private readonly GameSettings _settings;
     private readonly Random _rng;
-    private readonly List<Pos> _body = new(); // _body[0] 是蛇头
+    private readonly List<Pos> _body = new(); // _body[0] is the head
     private Dir _next = Dir.Right;
     private bool _newBestAnnounced;
 
@@ -42,9 +42,9 @@ public sealed class Game
     public bool Quit { get; private set; }
     public event Action<string>? Message;
 
-    // ---- 宏：分数变化时通知，速度有范围 ------------------------------------
+    // ---- Macros: notify when the score changes; keep the speed in range ------
     public int Score = @OBSERVABLE(0);
-    public int Tick = @CLAMP(30, 500, 120); // 每步间隔（毫秒），越小越快
+    public int Tick = @CLAMP(30, 500, 120); // milliseconds per step; smaller is faster
 
     private void OnPropertyChanged(string propertyName)
     {
@@ -54,16 +54,16 @@ public sealed class Game
             _newBestAnnounced = true;
             Message?.Invoke($"New best! (old best {Record.Best})");
         }
-        if (Score % 5 == 0) Tick -= 10; // 每 5 分加速；@CLAMP 保证不会低于 30
+        if (Score % 5 == 0) Tick -= 10; // speed up every 5 points; @CLAMP keeps it at 30 or more
     }
 
-    // ---- 宏：排查时加 -p:TraceState=true，这两个字段的每次变化都会打出来 ----
+    // ---- Macros: build with -p:TraceState=true to log every change of these two fields ----
     #region @TRACE_STATE
     public Dir Heading = Dir.Right;
     public Pos Food;
     #endregion
 
-    // ---- 宏：按键绑定。分发按键的 switch 和按键说明都是生成的 ----------------
+    // ---- Macros: key bindings. The key dispatch switch and the key help are generated ----
     [@Key("up", ConsoleKey.W, ConsoleKey.UpArrow)] private void Up() => Turn(Dir.Up);
     [@Key("down", ConsoleKey.S, ConsoleKey.DownArrow)] private void Down() => Turn(Dir.Down);
     [@Key("left", ConsoleKey.A, ConsoleKey.LeftArrow)] private void Left() => Turn(Dir.Left);
@@ -74,7 +74,7 @@ public sealed class Game
     public void HandleKey(ConsoleKey key) { @DISPATCH_KEYS(key); }
     public static string KeyHelp => @KEY_HELP();
 
-    // ---- 游戏逻辑 ------------------------------------------------------------
+    // ---- Game logic -----------------------------------------------------------
 
     private void Turn(Dir d)
     {
@@ -108,7 +108,7 @@ public sealed class Game
         }
         else _body.RemoveAt(_body.Count - 1);
 
-        // 不变量：Debug 构建里检查，Release 构建里这两行完全消失
+        // Invariants: checked in Debug builds; these two lines disappear entirely in Release builds
         @ASSERT(_body.Distinct().Count() == _body.Count, "the snake overlaps itself");
         @ASSERT(!_body.Contains(Food), "food is under the snake");
     }

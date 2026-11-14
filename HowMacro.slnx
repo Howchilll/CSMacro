@@ -8,10 +8,10 @@
     <Project Path="samples/Showcase/Showcase.Macros/Showcase.Macros.csproj" />
   </Folder>
   <Folder Name="/src/">
-    <Project Path="src/CSMacro.Abstractions/CSMacro.Abstractions.csproj" />
-    <Project Path="src/CSMacro.Cli/CSMacro.Cli.csproj" />
-    <Project Path="src/CSMacro.Engine/CSMacro.Engine.csproj" />
-    <Project Path="src/CSMacro.Testing/CSMacro.Testing.csproj" />
+    <Project Path="src/HowMacro.Abstractions/HowMacro.Abstractions.csproj" />
+    <Project Path="src/HowMacro.Cli/HowMacro.Cli.csproj" />
+    <Project Path="src/HowMacro.Engine/HowMacro.Engine.csproj" />
+    <Project Path="src/HowMacro.Testing/HowMacro.Testing.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Demo.Macros.Tests/Demo.Macros.Tests.csproj" />

@@ -4,15 +4,15 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
-namespace CSMacro.Engine
+namespace HowMacro.Engine
 {
     /// <summary>
-    /// 补上核心原则的一个缺口：Member 宏 / 片段宏会把字段变成同名同类型的属性。
-    /// 对绝大多数代码这两者等价，但有几种用法只对字段成立：IDE 看到的是字段，不会报错，
-    /// 展开后才编译失败，而且编译器报的"属性不能按引用传递"和源码对不上。这里提前在用法处报清楚：
+    /// Closes a gap in the core principle: Member macros and region macros turn a field into a property with the same name and type.
+    /// For almost all code the two are equivalent, but a few uses only work with fields: the IDE sees a field and reports nothing,
+    /// the build fails only after expansion, and the compiler's "a property can't be passed by reference" doesn't match the source. These are reported at the use site up front:
     /// <list type="bullet">
-    /// <item><c>ref</c> / <c>out</c> 实参、<c>ref</c> 表达式、取地址 <c>&amp;</c>：属性没有存储位置。</item>
-    /// <item>修改结构体类型成员的内部：<c>p.Pos.X = 1</c>，属性返回的是副本，修改会丢失。</item>
+    /// <item><c>ref</c> / <c>out</c> arguments, <c>ref</c> expressions, address-of <c>&amp;</c>: a property has no storage location.</item>
+    /// <item>Mutating a member of a struct-typed member: <c>p.Pos.X = 1</c> — the property returns a copy, so the change is lost.</item>
     /// </list>
     /// </summary>
     public static partial class MacroExpander
@@ -42,7 +42,7 @@ namespace CSMacro.Engine
                 void Report(ExpressionSyntax at, string macro, string why)
                 {
                     var name = model.GetSymbolInfo(at).Symbol?.Name ?? at.ToString();
-                    diagnostics.Add(Diag(DiagnosticLevel.Error, "CSM017",
+                    diagnostics.Add(Diag(DiagnosticLevel.Error, "HMC017",
                         $"{name} is turned into a property by {macro}, so {why}. " +
                         "The IDE still sees a field here, but the compiled code has a property", trees[i], at));
                     failed[i] = true;
@@ -64,7 +64,7 @@ namespace CSMacro.Engine
                             if (MacroOf(addressOf.Operand) is string m3) Report(addressOf.Operand, m3, "you can't take its address");
                             break;
 
-                        // p.Pos.X = 1 / p.Pos.X++ ：修改的是属性返回的副本
+                        // p.Pos.X = 1 / p.Pos.X++: this mutates the copy returned by the property
                         case MemberAccessExpressionSyntax access when IsMutated(access) && IsValueTypeMember(access.Expression, model):
                             if (MacroOf(access.Expression) is string m4)
                                 Report(access.Expression, m4, $"assigning to `{access}` would only change a copy of the struct");

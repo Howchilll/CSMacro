@@ -1,14 +1,14 @@
 using System.Linq;
-using CSMacro;
+using HowMacro;
 
 namespace Snake.Macros;
 
-/// <summary>几个宏共用的小工具。宏文件之间可以互相引用（它们一起先编译），但不能引用游戏本身的类型。</summary>
+/// <summary>Small helpers shared by several macros. Macro files can use each other (they are compiled together first), but not the game's own types.</summary>
 internal static class Shared
 {
     internal const string SupportedTypes = "int, long, float, double, bool, string, enums";
 
-    /// <summary>把字符串表达式 <paramref name="text"/> 解析成 <paramref name="type"/> 的代码；不支持的类型返回 null。</summary>
+    /// <summary>Code that parses the string expression <paramref name="text"/> into <paramref name="type"/>; null for unsupported types.</summary>
     internal static string? Parse(MacroType? type, string text)
     {
         if (type == null) return null;
@@ -26,7 +26,7 @@ internal static class Shared
         };
     }
 
-    /// <summary>所在类型声明了 <c>OnPropertyChanged(string)</c> 时，返回调用它的语句。</summary>
+    /// <summary>The statement that calls <c>OnPropertyChanged(string)</c>, when the containing type declares it.</summary>
     internal static string? NotifyCall() =>
         Macro.ContainingTypeInfo?.MembersNamed("OnPropertyChanged")
             .Any(m => m.Kind == MacroMemberKind.Method && m.Parameters.Count == 1 && m.Parameters[0].Type == "string") == true

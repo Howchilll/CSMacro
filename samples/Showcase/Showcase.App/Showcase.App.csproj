@@ -10,6 +10,6 @@
     <ProjectReference Include="../Showcase.Macros/Showcase.Macros.csproj" />
   </ItemGroup>
 
-  <Import Project="../../../build/CSMacro.targets" />
+  <Import Project="../../../build/HowMacro.targets" />
 
 </Project>

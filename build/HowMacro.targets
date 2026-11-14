@@ -1,0 +1,120 @@
+<Project>
+
+  <!--
+    MSBuild integration for HowMacro.
+    Approach: intercept the list of sources the compiler receives instead of modifying source files.
+      1. Before CoreCompile, hand @(Compile) and the references to howmacro.
+      2. howmacro expands files containing macros into obj/…/howmacro/src/ (the first line is a #line pointing back to the original file).
+      3. Those original files are swapped in @(Compile) for the expanded copies, and the generated startup script is added.
+        The compiler only ever sees the expanded result.
+    Optional properties:
+      HowMacroStartupAttribute  attribute on the generated startup script's entry point (default: ModuleInitializer)
+      HowMacroVerify=false      skip compiling macro-generated code for checks
+      HowMacroDump=true         also write the expanded result to a dump folder for debugging (does not affect the real build)
+      HowMacroDumpDir=<dir>     dump folder, default howmacro-dump under the project (relative to the project); always excluded from compilation
+      HowMacroDumpFiles=<a b>   only write these files (relative paths or file names, * and ** supported); turns dump on
+      HowMacroDumpMacros=<a b>  only expand these macros in the dump, leave the rest as is; turns dump on
+      HowMacroRuntimeCleanup=false  skip runtime cleanup (by default macro assemblies not needed at runtime are removed from references and output)
+    In-project macros: <HowMacroDefinition Include="Macros/**/*.cs" />. These files are first compiled on their own into a temporary assembly (macros are loaded from it during expansion),
+        then removed from the real compilation; the IDE still sees them as usual. They may only use the HowMacro API and referenced libraries, not this project's own types.
+    Expansion tool (HowMacro.Cli): when used as a NuGet package, the prebuilt tool in the package is used; inside the source repository it is built here automatically.
+        Consumers never need to reference it.
+    IDE design-time builds skip this step, so the IDE sees the original files: a macro is just an ordinary method call.
+  -->
+
+  <PropertyGroup>
+    <HowMacroEnabled Condition="'$(HowMacroEnabled)' == ''">true</HowMacroEnabled>
+    <HowMacroRuntimeCleanup Condition="'$(HowMacroRuntimeCleanup)' == ''">true</HowMacroRuntimeCleanup>
+    <_HowMacroCliProject>$(MSBuildThisFileDirectory)../src/HowMacro.Cli/HowMacro.Cli.csproj</_HowMacroCliProject>
+    <!-- NuGet package mode: tools/ contains the prebuilt expansion tool -->
+    <_HowMacroPackagedCli>$(MSBuildThisFileDirectory)../tools/net10.0/HowMacro.Cli.dll</_HowMacroPackagedCli>
+    <HowMacroCliPath Condition="'$(HowMacroCliPath)' == '' and Exists('$(_HowMacroPackagedCli)')">$(_HowMacroPackagedCli)</HowMacroCliPath>
+    <!-- Source mode: build the expansion tool from source -->
+    <_HowMacroBuildCli Condition="'$(HowMacroCliPath)' == ''">true</_HowMacroBuildCli>
+    <HowMacroCliPath Condition="'$(HowMacroCliPath)' == ''">$(MSBuildThisFileDirectory)../src/HowMacro.Cli/bin/$(Configuration)/net10.0/HowMacro.Cli.dll</HowMacroCliPath>
+    <HowMacroDotnet Condition="'$(HowMacroDotnet)' == '' and '$(DOTNET_HOST_PATH)' != ''">$(DOTNET_HOST_PATH)</HowMacroDotnet>
+    <HowMacroDotnet Condition="'$(HowMacroDotnet)' == ''">dotnet</HowMacroDotnet>
+
+    <!-- dump: setting a file or macro filter also turns it on -->
+    <HowMacroDump Condition="'$(HowMacroDump)' == '' and ('$(HowMacroDumpFiles)' != '' or '$(HowMacroDumpMacros)' != '')">true</HowMacroDump>
+    <HowMacroDumpDir Condition="'$(HowMacroDumpDir)' == ''">howmacro-dump</HowMacroDumpDir>
+    <!-- Dump folders contain expanded copies and must never be compiled as sources again (excluded for command-line builds and the IDE) -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);$(HowMacroDumpDir)/**</DefaultItemExcludes>
+  </PropertyGroup>
+
+  <!-- Build the expansion tool automatically (shared by all projects in one build; MSBuild builds it only once) -->
+  <Target Name="HowMacroBuildCli" Condition="'$(_HowMacroBuildCli)' == 'true'">
+    <MSBuild Projects="$(_HowMacroCliProject)" Targets="Build" Properties="Configuration=$(Configuration)" />
+  </Target>
+
+  <Target Name="HowMacroExpand"
+          BeforeTargets="CoreCompile"
+          DependsOnTargets="ResolveAssemblyReferences;HowMacroBuildCli"
+          Condition="'$(HowMacroEnabled)' == 'true' and '$(DesignTimeBuild)' != 'true'">
+
+    <PropertyGroup>
+      <_HowMacroDir>$(ProjectDir)$(IntermediateOutputPath)howmacro/</_HowMacroDir>
+      <_HowMacroRsp>$(_HowMacroDir)args.rsp</_HowMacroRsp>
+      <_HowMacroOriginalsFile>$(_HowMacroDir)originals.txt</_HowMacroOriginalsFile>
+      <_HowMacroExpandedFile>$(_HowMacroDir)expanded.txt</_HowMacroExpandedFile>
+      <_HowMacroRuntimeUnusedFile>$(_HowMacroDir)runtime-unused.txt</_HowMacroRuntimeUnusedFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <_HowMacroArg Include="--out:$(_HowMacroDir)src" />
+      <_HowMacroArg Include="--originals:$(_HowMacroOriginalsFile)" />
+      <_HowMacroArg Include="--expanded:$(_HowMacroExpandedFile)" />
+      <_HowMacroArg Include="--runtime-unused:$(_HowMacroRuntimeUnusedFile)" />
+      <_HowMacroArg Include="--langversion:$(LangVersion)" />
+      <_HowMacroArg Include="--nullable:$(Nullable)" />
+      <_HowMacroArg Include="--output-type:$(OutputType)" />
+      <_HowMacroArg Include="-d:$([MSBuild]::Escape($(DefineConstants)))" />
+      <_HowMacroArg Include="--startup-attribute:$(HowMacroStartupAttribute)" Condition="'$(HowMacroStartupAttribute)' != ''" />
+      <_HowMacroArg Include="--no-verify" Condition="'$(HowMacroVerify)' == 'false'" />
+      <_HowMacroArg Include="--dump:$(HowMacroDumpDir)" Condition="'$(HowMacroDump)' == 'true'" />
+      <_HowMacroArg Include="--dump-files:$([MSBuild]::Escape($(HowMacroDumpFiles)))" Condition="'$(HowMacroDumpFiles)' != ''" />
+      <_HowMacroArg Include="--dump-macros:$([MSBuild]::Escape($(HowMacroDumpMacros)))" Condition="'$(HowMacroDumpMacros)' != ''" />
+      <_HowMacroArg Include="@(HowMacroDefinition->'-m:%(FullPath)')" />
+      <_HowMacroArg Include="--local-macros-out:$(_HowMacroDir)$(AssemblyName).HowMacroLocal.dll" Condition="'@(HowMacroDefinition)' != ''" />
+      <_HowMacroArg Include="@(Compile->'-s:%(Identity)')" />
+      <_HowMacroArg Include="@(ReferencePath->'-r:%(FullPath)')" />
+    </ItemGroup>
+
+    <MakeDir Directories="$(_HowMacroDir)" />
+    <WriteLinesToFile File="$(_HowMacroRsp)" Lines="@(_HowMacroArg)" Overwrite="true" WriteOnlyWhenDifferent="true" />
+
+    <Exec Command="&quot;$(HowMacroDotnet)&quot; &quot;$(HowMacroCliPath)&quot; &quot;@$(_HowMacroRsp)&quot;" />
+
+    <ReadLinesFromFile File="$(_HowMacroOriginalsFile)">
+      <Output TaskParameter="Lines" ItemName="_HowMacroOriginal" />
+    </ReadLinesFromFile>
+    <ReadLinesFromFile File="$(_HowMacroExpandedFile)">
+      <Output TaskParameter="Lines" ItemName="_HowMacroExpanded" />
+    </ReadLinesFromFile>
+
+    <ItemGroup>
+      <Compile Remove="@(_HowMacroOriginal)" />
+      <Compile Include="@(_HowMacroExpanded)" />
+    </ItemGroup>
+
+    <!--
+      Runtime cleanup: macro libraries are only useful at compile time. Macro assemblies the expanded code no longer uses (decided by howmacro via GetUsedAssemblyReferences)
+      are removed from the compile references and the copy-to-output files, so they disappear from assembly metadata, deps.json and the output folder.
+    -->
+    <ReadLinesFromFile File="$(_HowMacroRuntimeUnusedFile)" Condition="'$(HowMacroRuntimeCleanup)' == 'true'">
+      <Output TaskParameter="Lines" ItemName="_HowMacroRuntimeUnused" />
+    </ReadLinesFromFile>
+    <PropertyGroup>
+      <_HowMacroRuntimeUnusedNames>;@(_HowMacroRuntimeUnused->'%(Filename)');</_HowMacroRuntimeUnusedNames>
+    </PropertyGroup>
+    <ItemGroup Condition="'@(_HowMacroRuntimeUnused)' != ''">
+      <_HowMacroDropReference Include="@(ReferencePath)" Condition="$(_HowMacroRuntimeUnusedNames.Contains(';%(Filename);'))" />
+      <_HowMacroDropRefAssembly Include="@(ReferencePathWithRefAssemblies)" Condition="$(_HowMacroRuntimeUnusedNames.Contains(';%(Filename);'))" />
+      <_HowMacroDropCopyLocal Include="@(ReferenceCopyLocalPaths)" Condition="$(_HowMacroRuntimeUnusedNames.Contains(';%(Filename);'))" />
+      <ReferencePath Remove="@(_HowMacroDropReference)" />
+      <ReferencePathWithRefAssemblies Remove="@(_HowMacroDropRefAssembly)" />
+      <ReferenceCopyLocalPaths Remove="@(_HowMacroDropCopyLocal)" />
+    </ItemGroup>
+  </Target>
+
+</Project>

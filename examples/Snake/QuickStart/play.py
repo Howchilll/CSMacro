@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""QuickStart：交互模式自己玩（wasd / 方向键转向, P / 空格暂停, Esc / Q 退出）。
+"""QuickStart: play interactively (wasd / arrow keys to turn, P / Space to pause, Esc / Q to quit).
 
-对应命令：dotnet run
-需要真实终端；输入被重定向时会自动改跑 demo。
+Equivalent command: dotnet run
+Needs a real terminal; when input is redirected it runs the demo instead.
 """
 import subprocess
 import sys

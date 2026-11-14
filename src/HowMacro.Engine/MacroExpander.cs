@@ -4,39 +4,39 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
-using CSMacro;
+using HowMacro;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
 
-namespace CSMacro.Engine
+namespace HowMacro.Engine
 {
     /// <summary>
-    /// 展开流程（一次完成，不多轮）：
-    /// 0. 用全部源码 + 引用建一个 Roslyn 编译（只做语义分析）。识别宏靠语义，不靠 @ 文本：
-    ///    方法宏 = 被调用的方法带 [Macro]；特性宏 = 特性类带 [AttributeMacro]。
-    ///    宏不能包含宏：方法宏的实参里出现宏直接报错。
-    /// 1. 特性宏阶段：按文件、行的顺序执行所有特性宏，收集它们产出的片段和启动代码。
-    /// 2. 方法宏阶段：原地展开所有方法宏，此时可以读取第 1 阶段的全部片段。
-    ///    输出压成一行、补齐换行，保证行号不变；特性宏从源码中删除。
-    /// 3. 检查展开结果里没有再出现宏（宏的输出也不能包含宏）。
-    /// 4. 把启动代码汇总成一个辅助脚本。
-    /// 5. （CLI）编译检查宏生成的代码，出错时报出是哪个宏生成的。
+    /// Expansion pipeline (a single pass, no rounds):
+    /// 0. Build a Roslyn compilation from all sources + references (semantic analysis only). Macros are recognized semantically, not by the @ text:
+    ///    method macro = the called method has [Macro]; attribute macro = the attribute class has [AttributeMacro].
+    ///    Macros can't contain macros: a macro inside a method macro's arguments is an error.
+    /// 1. Attribute macro phase: run every attribute macro in file and line order, collecting the fragments and startup code they produce.
+    /// 2. Method macro phase: expand every method macro in place; all fragments from phase 1 are available now.
+    ///    Output is folded onto one line and padded with newlines so line numbers don't change; attribute macros are removed from the source.
+    /// 3. Check that no macros appear in the expanded result (macro output can't contain macros either).
+    /// 4. Collect the startup code into a generated startup script.
+    /// 5. (CLI) Compile-check the macro-generated code and report which macro generated any error.
     /// </summary>
     public static partial class MacroExpander
     {
-        private const string MacroAttributeName = "CSMacro.MacroAttribute";
-        private const string AttributeMacroAttributeName = "CSMacro.AttributeMacroAttribute";
+        private const string MacroAttributeName = "HowMacro.MacroAttribute";
+        private const string AttributeMacroAttributeName = "HowMacro.AttributeMacroAttribute";
 
-        /// <summary>汇总启动代码的辅助脚本文件名。</summary>
-        public const string StartupFileName = "CSMacro.Startup.g.cs";
+        /// <summary>File name of the generated startup script.</summary>
+        public const string StartupFileName = "HowMacro.Startup.g.cs";
 
         public static ExpandResult Expand(IReadOnlyList<SourceFile> sources, ExpandOptions options, IMacroInvoker invoker)
         {
             var parseOptions = new CSharpParseOptions(
                 ParseLanguageVersion(options.LanguageVersion),
-                DocumentationMode.Parse, // 运行时清理需要：不解析文档注释时 GetUsedAssemblyReferences 会把所有引用都算作用到
+                DocumentationMode.Parse, // needed by runtime cleanup: without parsed doc comments GetUsedAssemblyReferences counts every reference as used
                 SourceCodeKind.Regular,
                 options.Defines);
 
@@ -50,7 +50,7 @@ namespace CSMacro.Engine
                 .ToList();
 
             var compilation = CSharpCompilation.Create(
-                "CSMacro.Expansion",
+                "HowMacro.Expansion",
                 trees,
                 references,
                 new CSharpCompilationOptions(ParseOutputKind(options.OutputType), allowUnsafe: true,
@@ -62,7 +62,7 @@ namespace CSMacro.Engine
             if (options.Verify && !diagnostics.Exists(d => d.Level == DiagnosticLevel.Error))
                 Verify(compilation, trees, result, parseOptions, diagnostics);
 
-            // 运行时清理：去掉导入宏库的无用 using，找出运行时已经不需要的宏程序集
+            // Runtime cleanup: remove unused usings that import macro libraries, find macro assemblies no longer needed at runtime
             IReadOnlyList<SyntaxTree> finalTrees = result.Expanded;
             var runtimeUnused = new List<string>();
             var reliable = false;
@@ -84,8 +84,8 @@ namespace CSMacro.Engine
         }
 
         /// <summary>
-        /// 在一个已有的编译里展开 <paramref name="targets"/>（必须属于该编译）。
-        /// 宿主可以自己建编译（CLI），也可以直接用别处现成的编译（例如以后的 Unity 宿主）。
+        /// Expands <paramref name="targets"/> within an existing compilation (they must belong to it).
+        /// A host can build its own compilation (the CLI) or reuse one that already exists elsewhere (e.g. a future Unity host).
         /// </summary>
         public static ExpansionResult ExpandTrees(
             CSharpCompilation compilation,
@@ -100,11 +100,11 @@ namespace CSMacro.Engine
             var attrs = new List<AttributeUse>[n];
             var regions = new List<RegionUse>[n];
             var failed = new bool[n];
-            var nestedOuters = new HashSet<InvocationExpressionSyntax>(); // 实参里含宏的调用：不执行，避免误导性的连带错误
+            var nestedOuters = new HashSet<InvocationExpressionSyntax>(); // calls whose arguments contain macros: not run, to avoid misleading follow-on errors
             var defines = targets.Count > 0 ? ((CSharpParseOptions)targets[0].Options).PreprocessorSymbolNames.ToArray() : new string[0];
-            var semantics = new MacroSemantics(compilation); // 语义信息基于展开前的编译：IDE 视角
+            var semantics = new MacroSemantics(compilation); // semantic information is based on the compilation before expansion: the IDE's view
 
-            // ---- 0. 发现 + 宏不能包含宏 ----
+            // ---- 0. discovery + macros can't contain macros ----
             for (var i = 0; i < n; i++)
             {
                 models[i] = compilation.GetSemanticModel(targets[i]);
@@ -112,7 +112,7 @@ namespace CSMacro.Engine
                 attrs[i] = FindAttributeMacros(targets[i], models[i]);
                 regions[i] = FindRegionMacros(targets[i], diagnostics, out var regionFailed);
                 failed[i] |= regionFailed;
-                // 核心原则兜底：宏调用处的代码在展开前就必须合法
+                // Core principle safety net: code at macro call sites must be valid before expansion
                 if (!CheckUnexpandedSource(targets[i], models[i], calls[i], attrs[i], diagnostics)) failed[i] = true;
 
                 foreach (var c in calls[i].ToList())
@@ -120,7 +120,7 @@ namespace CSMacro.Engine
                     var outer = calls[i].FirstOrDefault(o => o != c && o.Node.ArgumentList.Span.Contains(c.Node.Span));
                     if (outer == null) continue;
                     nestedOuters.Add(outer.Node);
-                    diagnostics.Add(Diag(DiagnosticLevel.Error, "CSM012",
+                    diagnostics.Add(Diag(DiagnosticLevel.Error, "HMC012",
                         $"macros can't contain macros: @{c.Method.Name} is inside the arguments of @{outer.Method.Name}. " +
                         "Expand it separately first, e.g. into a local variable",
                         targets[i], c.Node));
@@ -128,7 +128,7 @@ namespace CSMacro.Engine
                 }
             }
 
-            // ---- 宏筛选（排查问题用）：没选中的宏保持原样 ----
+            // ---- macro filter (for debugging): macros not selected stay as they are ----
             var selected = MacroSelector(options.Macros);
             for (var i = 0; i < n; i++)
             {
@@ -139,10 +139,10 @@ namespace CSMacro.Engine
             var regionIndex = regions.Any(r => r.Count > 0) ? RegionMacroIndex(compilation) : null;
             var records = new List<MacroExpansion>();
 
-            // ---- 1. 特性宏阶段 ----
+            // ---- 1. attribute macro phase ----
             var fragments = new Dictionary<string, List<MacroFragment>>(StringComparer.Ordinal);
             var startup = new List<MacroFragment>();
-            // 出错后不立即停下：把所有宏都跑一遍，一次报出全部错误；只是出错的文件不会被替换。
+            // Don't stop at the first error: run every macro so all errors are reported at once; files with errors just aren't replaced.
             foreach (var i in Enumerable.Range(0, n).OrderBy(i => targets[i].FilePath, StringComparer.Ordinal))
             {
                 foreach (var use in attrs[i])
@@ -153,10 +153,10 @@ namespace CSMacro.Engine
             }
             var available = fragments.ToDictionary(kv => kv.Key, kv => (IReadOnlyList<MacroFragment>)kv.Value, StringComparer.Ordinal);
 
-            // ---- 2. 方法宏阶段 ----
+            // ---- 2. method macro phase ----
             var expanded = targets.ToArray();
             var expansionLines = new Dictionary<SyntaxTree, Dictionary<int, string>>();
-            var transformed = new Dictionary<ISymbol, string>(SymbolEqualityComparer.Default); // 被宏从字段变成属性的成员 → 宏名
+            var transformed = new Dictionary<ISymbol, string>(SymbolEqualityComparer.Default); // members a macro turned from a field into a property → macro name
             for (var i = 0; i < n; i++)
             {
                 if (calls[i].Count == 0 && attrs[i].Count == 0 && regions[i].Count == 0) continue;
@@ -173,7 +173,7 @@ namespace CSMacro.Engine
 
                     if (changes.Count > 0 && changes[changes.Count - 1].Span.End > change.Value.Span.Start)
                     {
-                        diagnostics.Add(Diag(DiagnosticLevel.Error, "CSM014",
+                        diagnostics.Add(Diag(DiagnosticLevel.Error, "HMC014",
                             $"@{call.Method.Name} replaces code that overlaps with another macro on the same declaration", tree, call.Node));
                         failed[i] = true;
                         continue;
@@ -189,7 +189,7 @@ namespace CSMacro.Engine
                     lines[line] = lines.TryGetValue(line, out var names) ? names + ", @" + call.Method.Name : "@" + call.Method.Name;
                 }
 
-                // 片段宏（与方法宏同一阶段，都在全部特性宏之后）
+                // Region macros (same phase as method macros, after all attribute macros)
                 foreach (var region in regions[i])
                 {
                     if (!ExpandRegion(region, tree, models[i], compilation, invoker, defines, semantics, macroAttributes, available,
@@ -198,7 +198,7 @@ namespace CSMacro.Engine
                 }
                 if (failed[i]) continue;
 
-                // 删除特性宏（所在声明已经被 Member 宏整体替换的除外：Member 宏拿到的 Attributes 本来就不含特性宏）
+                // Remove attribute macros (except where the declaration was replaced as a whole by a Member macro: the Attributes it received already exclude attribute macros)
                 foreach (var list in attrs[i].Select(a => (AttributeListSyntax)a.Node.Parent!).Distinct())
                 {
                     if (changes.Any(c => c.Span.Contains(list.Span))) continue;
@@ -209,7 +209,7 @@ namespace CSMacro.Engine
                 changes.Sort((a, b) => a.Span.Start.CompareTo(b.Span.Start));
                 if (changes.Zip(changes.Skip(1), (a, b) => a.Span.End > b.Span.Start).Any(x => x))
                 {
-                    diagnostics.Add(new MacroDiagnostic(DiagnosticLevel.Error, "CSM014",
+                    diagnostics.Add(new MacroDiagnostic(DiagnosticLevel.Error, "HMC014",
                         "two macros replace overlapping code in this file", tree.FilePath, 1, 1));
                     failed[i] = true;
                     continue;
@@ -219,10 +219,10 @@ namespace CSMacro.Engine
                 expansionLines[newTree] = lines;
             }
 
-            // ---- 2b. 字段变成属性后，只对字段成立的用法（ref/out、取地址、修改结构体副本）提前报错 ----
+            // ---- 2b. once a field becomes a property, report field-only uses (ref/out, address-of, struct copy mutation) up front ----
             CheckPropertyUses(transformed, targets, models, failed, diagnostics);
 
-            // ---- 3. 宏的输出也不能包含宏 ----
+            // ---- 3. macro output can't contain macros either ----
             var after = compilation;
             for (var i = 0; i < n; i++)
                 if (!ReferenceEquals(expanded[i], targets[i])) after = after.ReplaceSyntaxTree(targets[i], expanded[i]);
@@ -241,16 +241,16 @@ namespace CSMacro.Engine
 
                 foreach (var (node, macro) in leftovers)
                 {
-                    if (!selected(macro)) continue; // 没选中的宏本来就保持原样
+                    if (!selected(macro)) continue; // macros that weren't selected stay as they are anyway
                     var line = expanded[i].GetLineSpan(node.Span).StartLinePosition.Line + 1;
                     var by = lines.TryGetValue(line, out var names) ? names : "a macro";
-                    diagnostics.Add(Diag(DiagnosticLevel.Error, "CSM012",
+                    diagnostics.Add(Diag(DiagnosticLevel.Error, "HMC012",
                         $"macros can't contain macros: the output of {by} contains {macro}", expanded[i], node));
                     failed[i] = true;
                 }
             }
 
-            // ---- 4. 启动代码 → 辅助脚本 ----
+            // ---- 4. startup code → generated startup script ----
             var parseOptions = n > 0 ? (CSharpParseOptions)targets[0].Options : CSharpParseOptions.Default;
             var startupCode = BuildStartupScript(startup, options.StartupAttribute, parseOptions, diagnostics);
 
@@ -258,7 +258,7 @@ namespace CSMacro.Engine
             return new ExpansionResult(expanded, expansionLines, startupCode, startup, ordered);
         }
 
-        // ================================================================== 特性宏
+        // ================================================================== Attribute macros
 
         private sealed class AttributeUse
         {
@@ -318,13 +318,13 @@ namespace CSMacro.Engine
             }
 
             if (!AttributeNameIsVerbatim(attr))
-                diagnostics.Add(Diag(DiagnosticLevel.Warning, "CSM010",
+                diagnostics.Add(Diag(DiagnosticLevel.Warning, "HMC010",
                     $"attribute macro '{name}' should be written as [@{name}] so readers can tell it is expanded at compile time",
                     tree, attr));
 
             var list = (AttributeListSyntax)attr.Parent!;
             if (list.Target != null)
-                return Fail("CSM003", $"[@{name}] can't have an attribute target specifier ('{list.Target.Identifier.Text}:')");
+                return Fail("HMC003", $"[@{name}] can't have an attribute target specifier ('{list.Target.Identifier.Text}:')");
 
             MacroTarget target;
             string? memberName, memberType = null, modifiers;
@@ -334,7 +334,7 @@ namespace CSMacro.Engine
             {
                 case FieldDeclarationSyntax f:
                     if (f.Declaration.Variables.Count != 1)
-                        return Fail("CSM003", $"[@{name}] must be on a field declaration with exactly one variable");
+                        return Fail("HMC003", $"[@{name}] must be on a field declaration with exactly one variable");
                     target = MacroTarget.Field;
                     memberName = f.Declaration.Variables[0].Identifier.ValueText;
                     memberType = f.Declaration.Type.ToString();
@@ -365,15 +365,15 @@ namespace CSMacro.Engine
                     containing = model.GetDeclaredSymbol(t);
                     break;
                 default:
-                    return Fail("CSM003", $"[@{name}] can only be used on fields, properties, methods and types");
+                    return Fail("HMC003", $"[@{name}] can only be used on fields, properties, methods and types");
             }
 
             if ((use.Targets & target) == 0)
-                return Fail("CSM003", $"[@{name}] can't be used on a {target.ToString().ToLowerInvariant()}; it is declared for: {use.Targets}");
+                return Fail("HMC003", $"[@{name}] can't be used on a {target.ToString().ToLowerInvariant()}; it is declared for: {use.Targets}");
 
             var reference = ResolveMacroAssembly(use.Ctor.ContainingType, compilation);
             if (reference == null)
-                return Fail("CSM004",
+                return Fail("HMC004",
                     $"[@{name}] is declared in the same project that uses it. Macros must live in a referenced assembly, " +
                     "because they are compiled and executed before this project is compiled");
 
@@ -418,7 +418,7 @@ namespace CSMacro.Engine
             foreach (var f in context.ProducedFragments.Concat(context.ProducedStartup))
             {
                 var kind = context.ProducedStartup.Contains(f) ? "Startup" : "Fragment:" + f.Channel;
-                // 启动代码是 C#，按展开结果显示；片段内容是自由文本（不一定是 C#），原样显示
+                // Startup code is C#, shown as expanded; fragment content is free text (not necessarily C#), shown verbatim
                 var code = kind == "Startup" ? ToSingleLine(f.Code, (CSharpParseOptions)tree.Options, out _) ?? f.Code : f.Code;
                 records.Add(new MacroExpansion(tree.FilePath, context.Line, "[@" + name + "]", kind, source, code,
                     kind == "Startup" ? Format(code, MacroSite.Statement) : code));
@@ -441,10 +441,10 @@ namespace CSMacro.Engine
 
             var sb = new StringBuilder()
                 .Append("// <auto-generated>\n")
-                .Append("// CSMacro: startup code produced by attribute macros (Macro.Startup).\n")
+                .Append("// HowMacro: startup code produced by attribute macros (Macro.Startup).\n")
                 .Append("// Each statement is mapped back to the attribute that produced it.\n")
                 .Append("// </auto-generated>\n")
-                .Append("namespace CSMacro.Generated\n{\n")
+                .Append("namespace HowMacro.Generated\n{\n")
                 .Append("    internal static class Startup\n    {\n")
                 .Append("        [").Append(startupAttribute).Append("]\n")
                 .Append("        internal static void Run()\n        {\n");
@@ -456,7 +456,7 @@ namespace CSMacro.Engine
                     error = $"startup code is not valid statements: {parseError} -- code: {oneLine}";
                 if (error != null)
                 {
-                    diagnostics.Add(new MacroDiagnostic(DiagnosticLevel.Error, "CSM011", $"[@{f.MacroName}]: {error}", f.FilePath, f.Line, 1));
+                    diagnostics.Add(new MacroDiagnostic(DiagnosticLevel.Error, "HMC011", $"[@{f.MacroName}]: {error}", f.FilePath, f.Line, 1));
                     continue;
                 }
 
@@ -467,7 +467,7 @@ namespace CSMacro.Engine
             return sb.Append("#line default\n        }\n    }\n}\n").ToString();
         }
 
-        // ================================================================== 方法宏
+        // ================================================================== Method macros
 
         private sealed class MacroCall
         {
@@ -482,7 +482,7 @@ namespace CSMacro.Engine
             public IMethodSymbol Method { get; }
             public MacroSite Sites { get; }
 
-            /// <summary>展开时实际匹配到的位置。</summary>
+            /// <summary>The site actually matched during expansion.</summary>
             public MacroSite UsedSite { get; set; }
         }
 
@@ -531,11 +531,11 @@ namespace CSMacro.Engine
             }
 
             if (!CalleeNameIsVerbatim(inv))
-                diagnostics.Add(Diag(DiagnosticLevel.Warning, "CSM010",
+                diagnostics.Add(Diag(DiagnosticLevel.Warning, "HMC010",
                     $"macro '{name}' should be called as @{name}(...) so readers can tell it is expanded at compile time",
                     tree, inv));
 
-            // ---- 判定位置 ----
+            // ---- determine the site ----
             string? memberName = null, memberType = null, modifiers = null, attributes = null;
             MacroSite? site = null;
             SyntaxNode target = inv;
@@ -558,7 +558,7 @@ namespace CSMacro.Engine
                     if ((call.Sites & MacroSite.Member) != 0)
                     {
                         if (declaration.Variables.Count != 1)
-                            return Fail("CSM003", $"@{name} replaces the whole field declaration, so it must declare exactly one variable");
+                            return Fail("HMC003", $"@{name} replaces the whole field declaration, so it must declare exactly one variable");
                         site = MacroSite.Member;
                         target = field;
                     }
@@ -583,21 +583,21 @@ namespace CSMacro.Engine
                 }
                 else
                 {
-                    return Fail("CSM003", $"@{name} can't be used here; it is declared for: {call.Sites}");
+                    return Fail("HMC003", $"@{name} can't be used here; it is declared for: {call.Sites}");
                 }
             }
 
-            // ---- 定位宏方法所在的程序集 ----
+            // ---- locate the assembly containing the macro method ----
             var def = call.Method.OriginalDefinition;
             var reference = ResolveMacroAssembly(def.ContainingType, compilation);
             if (reference == null)
-                return Fail("CSM004",
+                return Fail("HMC004",
                     $"@{name} is declared in the same project that uses it. Macros must live in a referenced assembly, " +
                     "because they are compiled and executed before this project is compiled");
 
             var method = new MacroMethod(reference, MetadataName(def.ContainingType), def.Name, def.Arity, def.Parameters.Length);
 
-            // ---- 构造上下文 ----
+            // ---- build the context ----
             var pos = tree.GetLineSpan(inv.Span).StartLinePosition;
             var enclosing = model.GetEnclosingSymbol(inv.SpanStart);
             var containingType = enclosing as INamedTypeSymbol ?? enclosing?.ContainingType;
@@ -623,34 +623,34 @@ namespace CSMacro.Engine
                 TypeLookup = semantics.Find,
             };
 
-            // ---- 执行宏 ----
+            // ---- run the macro ----
             if (!Run(invoker, method, context, "@" + name, tree, inv, diagnostics)) return null;
 
             var emitted = context.Output.ToString();
             if (site == MacroSite.Expression && string.IsNullOrWhiteSpace(emitted))
-                return Fail("CSM006", $"@{name} is used as an expression but emitted no code");
+                return Fail("HMC006", $"@{name} is used as an expression but emitted no code");
 
-            // ---- 压成一行 + 补换行 ----
+            // ---- fold onto one line + pad newlines ----
             var oneLine = ToSingleLine(emitted, parseOptions, out var compressError);
-            if (oneLine == null) return Fail("CSM007", $"@{name}: {compressError}");
+            if (oneLine == null) return Fail("HMC007", $"@{name}: {compressError}");
 
-            // ---- 核心原则：不展开宏，项目静态上也必须正确 ----
-            // 名字和类型只能由源码声明，宏只改实现；展开结果不得引入 IDE 看不见的名字。
+            // ---- core principle: the unexpanded project must stay statically correct ----
+            // Names and types are declared only by the source; macros only change implementation. Expansion must not introduce names the IDE can't see.
             switch (site)
             {
                 case MacroSite.Expression:
                     oneLine = "(" + oneLine + ")";
                     var expr = SyntaxFactory.ParseExpression(oneLine, options: parseOptions, consumeFullText: true);
                     if (FirstError(expr) is string exprError)
-                        return Fail("CSM011", $"@{name} emitted code that is not a valid expression: {exprError} -- emitted: {oneLine}");
+                        return Fail("HMC011", $"@{name} emitted code that is not a valid expression: {exprError} -- emitted: {oneLine}");
                     break;
 
                 case MacroSite.Statement:
-                    // 包进块里：宏内部声明的局部变量出不了这个块，后面的代码看不到它，也不会和外面重名。
+                    // Wrap in a block: locals declared inside the macro can't escape it, so later code can't see them and they can't clash with outer names.
                     oneLine = "{ " + oneLine + " }";
                     var block = SyntaxFactory.ParseStatement(oneLine, options: parseOptions, consumeFullText: true);
                     if (FirstError(block) is string stmtError)
-                        return Fail("CSM011", $"@{name} emitted code that is not valid statements: {stmtError} -- emitted: {oneLine}");
+                        return Fail("HMC011", $"@{name} emitted code that is not valid statements: {stmtError} -- emitted: {oneLine}");
                     break;
 
                 case MacroSite.Member:
@@ -666,9 +666,9 @@ namespace CSMacro.Engine
             return new TextChange(target.Span, oneLine + new string('\n', newlines));
         }
 
-        // ================================================================== 共用
+        // ================================================================== Shared
 
-        /// <summary>执行一次宏，把异常和宏自己报的消息转成诊断。返回是否成功。</summary>
+        /// <summary>Runs a macro once, turning exceptions and the macro's own messages into diagnostics. Returns whether it succeeded.</summary>
         private static bool Run(IMacroInvoker invoker, MacroMethod method, MacroContext context, string display,
             SyntaxTree tree, SyntaxNode node, List<MacroDiagnostic> diagnostics)
         {
@@ -679,7 +679,7 @@ namespace CSMacro.Engine
             catch (Exception ex)
             {
                 if (ex is TargetInvocationException tie && tie.InnerException != null) ex = tie.InnerException;
-                diagnostics.Add(Diag(DiagnosticLevel.Error, "CSM005", $"{display} threw {ex.GetType().Name}: {ex.Message}", tree, node));
+                diagnostics.Add(Diag(DiagnosticLevel.Error, "HMC005", $"{display} threw {ex.GetType().Name}: {ex.Message}", tree, node));
                 return false;
             }
 
@@ -689,7 +689,7 @@ namespace CSMacro.Engine
                 var isError = msg.Severity == MacroMessageSeverity.Error;
                 ok &= !isError;
                 diagnostics.Add(Diag(isError ? DiagnosticLevel.Error : DiagnosticLevel.Warning,
-                    isError ? "CSM100" : "CSM101", $"{display}: {msg.Text}", tree, node));
+                    isError ? "HMC100" : "HMC101", $"{display}: {msg.Text}", tree, node));
             }
             return ok;
         }
@@ -741,7 +741,7 @@ namespace CSMacro.Engine
                 "@" + call.Method.Name, call.UsedSite.ToString(), source, output, Format(output, call.UsedSite));
         }
 
-        /// <summary>把压成一行的代码重新格式化成多行，仅用于报告。</summary>
+        /// <summary>Reformats code folded onto one line into multiple lines; only used for the report.</summary>
         private static string Format(string code, MacroSite site)
         {
             SyntaxNode node = site switch
@@ -755,11 +755,11 @@ namespace CSMacro.Engine
 
         private static string EscapePath(string path) => path.Replace("\\", "\\\\");
 
-        // ================================================================== 编译检查
+        // ================================================================== Compile check
 
         /// <summary>
-        /// 编译展开后的代码，只关心宏生成的那些行（和启动脚本）。出错时报出是哪个宏生成的，
-        /// 让开发者知道问题在宏而不是自己写的代码；其余错误留给编译器自己报。
+        /// Compiles the expanded code, looking only at macro-generated lines (and the startup script). Errors are reported with the macro that generated them,
+        /// so developers know the problem is in a macro rather than their own code; other errors are left to the compiler.
         /// </summary>
         private static void Verify(CSharpCompilation compilation, SyntaxTree[] originals, ExpansionResult result,
             CSharpParseOptions parseOptions, List<MacroDiagnostic> diagnostics)
@@ -782,7 +782,7 @@ namespace CSMacro.Engine
                     if (d.Severity != DiagnosticSeverity.Error) continue;
                     var pos = d.Location.GetLineSpan().StartLinePosition;
                     if (!kv.Value.TryGetValue(pos.Line + 1, out var macros)) continue;
-                    diagnostics.Add(new MacroDiagnostic(DiagnosticLevel.Error, "CSM013",
+                    diagnostics.Add(new MacroDiagnostic(DiagnosticLevel.Error, "HMC013",
                         $"code generated by {macros} doesn't compile: {d.Id}: {d.GetMessage()}",
                         kv.Key.FilePath, pos.Line + 1, pos.Character + 1));
                 }
@@ -795,22 +795,22 @@ namespace CSMacro.Engine
                 var mapped = d.Location.GetMappedLineSpan();
                 var line = mapped.StartLinePosition.Line + 1;
                 var macro = result.StartupFragments.FirstOrDefault(f => f.FilePath == mapped.Path && f.Line == line)?.MacroName ?? "an attribute macro";
-                diagnostics.Add(new MacroDiagnostic(DiagnosticLevel.Error, "CSM013",
+                diagnostics.Add(new MacroDiagnostic(DiagnosticLevel.Error, "HMC013",
                     $"startup code generated by [@{macro}] doesn't compile: {d.Id}: {d.GetMessage()}",
                     mapped.Path, line, 1));
             }
         }
 
         /// <summary>
-        /// Member 宏的输出必须正好是一个字段或属性，名字和类型都与源码声明一致。
-        /// 这样 IDE 眼里的 <c>public int Hp = @M(...)</c>（int 字段 Hp）和编译器实际拿到的成员，
-        /// 对任何使用 Hp 的代码来说都是等价的。
+        /// A Member macro's output must be exactly one field or property whose name and type match the source declaration.
+        /// That way what the IDE sees in <c>public int Hp = @M(...)</c> (an int field Hp) and the member the compiler actually gets
+        /// are equivalent to any code that uses Hp.
         /// </summary>
         private static (string Code, string Message)? CheckMember(string code, string name, string type, CSharpParseOptions options)
         {
-            var unit = SyntaxFactory.ParseCompilationUnit("class __CSMacroCheck { " + code + " }", options: options);
+            var unit = SyntaxFactory.ParseCompilationUnit("class __HowMacroCheck { " + code + " }", options: options);
             if (FirstError(unit) is string parseError)
-                return ("CSM011", $"emitted code is not a valid member declaration: {parseError}");
+                return ("HMC011", $"emitted code is not a valid member declaration: {parseError}");
 
             var members = unit.Members.OfType<ClassDeclarationSyntax>().Single().Members;
             var declared = members.Select(DescribeMember).ToList();
@@ -820,13 +820,13 @@ namespace CSMacro.Engine
                 var got = members.Count == 0
                     ? "nothing"
                     : string.Join(", ", declared.Select(d => d == null ? "a non-field/property member" : $"'{d.Value.Name}'"));
-                return ("CSM008",
+                return ("HMC008",
                     $"must emit exactly one field or property named '{name}' (the name declared in source), but emitted {got}. " +
                     "Macros may not introduce or remove names: the unexpanded source must stay statically correct, so the IDE never sees a name that doesn't exist");
             }
 
             if (Normalize(declared[0]!.Value.Type) != Normalize(type))
-                return ("CSM009",
+                return ("HMC009",
                     $"must keep the declared type '{type}', but emitted '{declared[0]!.Value.Type}'. " +
                     "Changing the type would make the IDE's view of '" + name + "' wrong");
 
@@ -847,8 +847,8 @@ namespace CSMacro.Engine
             node.GetDiagnostics().FirstOrDefault(d => d.Severity == DiagnosticSeverity.Error)?.GetMessage();
 
         /// <summary>
-        /// 把宏输出的代码重新分词再用空格连接：去掉换行和注释，整段落在调用所在的那一行。
-        /// 预处理指令和跨行字面量无法压成一行，直接报错。
+        /// Re-tokenizes the macro's output and joins it with spaces: newlines and comments are dropped and everything lands on the call's line.
+        /// Preprocessor directives and multi-line literals can't be folded onto one line and are reported as errors.
         /// </summary>
         private static string? ToSingleLine(string code, CSharpParseOptions options, out string? error)
         {
@@ -879,7 +879,7 @@ namespace CSMacro.Engine
             return sb.ToString();
         }
 
-        // 只在括号、点号、分隔符旁边省略空格；其余情况一律保留，避免 "- -x" 粘成 "--x" 之类的问题。
+        // Spaces are omitted only next to parentheses, dots and separators; everywhere else they are kept, so "- -x" never becomes "--x".
         private static bool NeedsSpace(string previous, string next) =>
             !(previous == "(" || previous == "[" || previous == "." || previous == "::" || next == "::" ||
               next == ")" || next == "]" || next == ";" || next == "," || next == "." || next == "(" || next == "[");

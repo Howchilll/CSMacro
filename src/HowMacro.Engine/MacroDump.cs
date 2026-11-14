@@ -5,29 +5,29 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 
-namespace CSMacro.Engine
+namespace HowMacro.Engine
 {
     /// <summary>
-    /// 把展开结果写到一个目标文件夹，方便排查展开后的问题：
+    /// Writes the expansion result to a target folder to help debug problems after expansion:
     /// <list type="bullet">
-    /// <item>展开后的源文件：和原文件逐行对齐（第 N 行就是源码第 N 行展开后的样子），可以直接对照着看。</item>
-    /// <item><c>generated/</c>：引擎生成的辅助脚本（启动代码）。</item>
-    /// <item><c>_expansions.txt</c>：展开报告，列出每一次展开的源码和格式化成多行的输出，以及诊断。</item>
+    /// <item>Expanded source files: line-aligned with the originals (line N is source line N after expansion), so you can compare them side by side.</item>
+    /// <item><c>generated/</c>: the generated startup script (startup code).</item>
+    /// <item><c>_expansions.txt</c>: the expansion report, listing each expansion's source and its output formatted over multiple lines, plus diagnostics.</item>
     /// </list>
-    /// 展开出错时也可以写出（已经展开的部分照样写），这正是最需要看展开结果的时候。
+    /// It can be written even when expansion fails (whatever did expand is still written) — exactly when you most need to see the expansion.
     /// </summary>
     public static class MacroDump
     {
         public const string ReportFileName = "_expansions.txt";
-        /// <summary>dump 目录里的标记文件：有它的目录由 csmacro 管理，每次 dump 会清空，且其中的 .cs 不会被当作源码编译。</summary>
-        public const string MarkerFileName = ".csmacro-dump";
+        /// <summary>Marker file in a dump folder: folders with it are managed by howmacro, cleared on every dump, and their .cs files are never compiled as sources.</summary>
+        public const string MarkerFileName = ".howmacro-dump";
 
-        /// <param name="directory">目标文件夹。不存在会创建；已存在且不是 csmacro 创建的非空文件夹会拒绝写入，避免误删。</param>
-        /// <param name="sources">参与展开的全部源文件（用来把绝对路径换回相对路径）。</param>
-        /// <param name="result">展开结果。</param>
-        /// <param name="filePatterns">只写出匹配的文件：按相对路径或文件名匹配，支持 * 和 **；为空表示全部。</param>
-        /// <param name="macroFilter">本次只展开了哪些宏，只用于写进报告。</param>
-        /// <returns>写出的文件（相对 <paramref name="directory"/>）。</returns>
+        /// <param name="directory">Target folder. Created if missing; a non-empty folder that howmacro didn't create is refused, to avoid deleting someone's files.</param>
+        /// <param name="sources">All sources that took part in the expansion (used to turn absolute paths back into relative ones).</param>
+        /// <param name="result">The expansion result.</param>
+        /// <param name="filePatterns">Only write matching files: matched by relative path or file name, * and ** supported; empty means all.</param>
+        /// <param name="macroFilter">Which macros this run expanded; only used for the report.</param>
+        /// <returns>The files written (relative to <paramref name="directory"/>).</returns>
         public static IReadOnlyList<string> Write(
             string directory,
             IReadOnlyList<SourceFile> sources,
@@ -60,7 +60,7 @@ namespace CSMacro.Engine
             return written;
         }
 
-        /// <summary>把文件模式（相对路径或文件名，支持 * ? **）编译成匹配函数。</summary>
+        /// <summary>Compiles file patterns (relative paths or file names, * ? ** supported) into a matcher.</summary>
         public static Func<string, bool> FileMatcher(IReadOnlyCollection<string>? patterns)
         {
             var list = patterns?.Select(p => p.Trim().Replace('\\', '/')).Where(p => p.Length > 0).ToList();
@@ -83,7 +83,7 @@ namespace CSMacro.Engine
             var sb = new StringBuilder();
             const string Rule = "------------------------------------------------------------------------";
 
-            sb.Append("CSMacro expansion report\n");
+            sb.Append("HowMacro expansion report\n");
             sb.Append("macros: ").Append(macroFilter is { Count: > 0 } ? string.Join(", ", macroFilter) : "(all)").Append('\n');
             sb.Append("files:  ").Append(filePatterns is { Count: > 0 } ? string.Join(", ", filePatterns) : "(all)").Append('\n');
             sb.Append("Expanded files are line-aligned with their sources: line N is source line N after expansion.\n");
@@ -99,7 +99,7 @@ namespace CSMacro.Engine
                       .Append(d.Level == DiagnosticLevel.Error ? "error " : "warning ").Append(d.Code).Append(": ").Append(d.Message).Append('\n');
             }
 
-            // 报告只覆盖被选中的文件（辅助脚本 generated/ 总是完整写出）。
+            // The report only covers the selected files (the generated/ startup script is always written in full).
             var expansions = result.Expansions.Where(e => selectedPaths.Contains(e.FilePath)).ToList();
 
             sb.Append('\n').Append(expansions.Count).Append(" expansion(s)\n");
@@ -119,13 +119,13 @@ namespace CSMacro.Engine
             if (Directory.Exists(directory))
             {
                 if (!File.Exists(marker) && Directory.EnumerateFileSystemEntries(directory).Any())
-                    throw new IOException($"dump directory '{directory}' is not empty and was not created by csmacro; refusing to overwrite it");
-                // 只清理上次 dump 写出的内容（有标记文件才会走到这里）
+                    throw new IOException($"dump directory '{directory}' is not empty and was not created by howmacro; refusing to overwrite it");
+                // Only clear what the previous dump wrote (we only get here when the marker file exists)
                 foreach (var f in Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories)) File.Delete(f);
                 foreach (var d in Directory.EnumerateDirectories(directory)) Directory.Delete(d, recursive: true);
             }
             Directory.CreateDirectory(directory);
-            File.WriteAllText(marker, "This folder is written by csmacro --dump and is cleared on every dump.\n");
+            File.WriteAllText(marker, "This folder is written by howmacro --dump and is cleared on every dump.\n");
         }
 
         private static string WriteFile(string directory, string relativePath, string text)

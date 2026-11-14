@@ -7,10 +7,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- 宏库：IDE 靠它认识 @GETSET 等方法，展开器也从这里加载宏。 -->
+    <!-- Macro library: the IDE uses it to understand @GETSET and friends; the expander loads the macros from it. -->
     <ProjectReference Include="../Demo.Macros/Demo.Macros.csproj" />
   </ItemGroup>
 
-  <Import Project="../../build/CSMacro.targets" />
+  <Import Project="../../build/HowMacro.targets" />
 
 </Project>

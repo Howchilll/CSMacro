@@ -1,13 +1,13 @@
 using System.Text.RegularExpressions;
-using CSMacro;
-using CSMacro.Testing;
+using HowMacro;
+using HowMacro.Testing;
 using Xunit;
 
 namespace Demo.Macros.Tests;
 
 /// <summary>
-/// 只给测试用的片段宏：故意违反规则，验证引擎会报错。
-/// 宏可以直接定义在测试项目里：测试程序集本身就是被引用的程序集。
+/// Region macros for tests only: they break the rules on purpose to check that the engine reports errors.
+/// Macros can be defined right in the test project: the test assembly itself is a referenced assembly.
 /// </summary>
 public static class TestRegionMacros
 {
@@ -39,7 +39,7 @@ public class RegionMacroTests
     private static MacroTestResult Expand(string source) =>
         MacroTest.Expand(source, new MacroTestOptions { References = { typeof(M).Assembly, typeof(TestRegionMacros).Assembly } });
 
-    // 占 5 行；拼上 """ 开头的下一段后，那一段的第一行就是第 6 行。
+    // 5 lines; when the next """ block is appended, its first line is line 6.
     private const string Header = """
         using System; using System.Collections.Generic;
         using Demo.Macros;
@@ -48,7 +48,7 @@ public class RegionMacroTests
         public static class Data { public static int Hp = 100; }
         """;
 
-    // ------------------------------------------------------------------ 逐成员替换
+    // ------------------------------------------------------------------ Per-member replacement
 
     [Fact]
     public void LOG_ALL_logs_every_wrapped_field_and_keeps_lines()
@@ -67,7 +67,7 @@ public class RegionMacroTests
 
         Assert.Contains("#region [expanded] @LOG_ALL", r.Line(8));
         Assert.StartsWith("    public int Hp { get; set {", r.Line(9));
-        Assert.Equal("    public readonly int Id = 1;", r.Line(11)); // readonly 被跳过
+        Assert.Equal("    public readonly int Id = 1;", r.Line(11)); // readonly is skipped
         Assert.Equal(2, r.Expansions.Count(e => e.Kind == "Region:Member"));
 
         var compiled = r.Compile();
@@ -76,7 +76,7 @@ public class RegionMacroTests
         {
             compiled.Set(enemy, "Hp", 30);
             compiled.Set(enemy, "State", "Chasing");
-            compiled.Set(enemy, "Hp", 30); // 值没变
+            compiled.Set(enemy, "Hp", 30); // unchanged
         });
         Assert.Equal("[Enemy.Hp] 50 -> 30\n[Enemy.State] Idle -> Chasing\n", log.Replace("\r\n", "\n"));
     }
@@ -95,8 +95,8 @@ public class RegionMacroTests
             }
             """).AssertSuccess();
 
-        Assert.Contains("get => Data.Hp; set => Data.Hp = value;", r.Line(9)); // 由 @GETSET 展开
-        Assert.Contains("Console.WriteLine", r.Line(10));                      // 由 @LOG_ALL 替换
+        Assert.Contains("get => Data.Hp; set => Data.Hp = value;", r.Line(9)); // expanded by @GETSET
+        Assert.Contains("Console.WriteLine", r.Line(10));                      // replaced by @LOG_ALL
     }
 
     [Fact]
@@ -112,7 +112,7 @@ public class RegionMacroTests
             }
             """);
 
-        r.AssertError("CSM005", contains: "already expanded by @GETSET", line: 8);
+        r.AssertError("HMC005", contains: "already expanded by @GETSET", line: 8);
     }
 
     [Fact]
@@ -128,10 +128,10 @@ public class RegionMacroTests
             }
             """);
 
-        r.AssertError("CSM008", contains: "named 'A'", line: 9);
+        r.AssertError("HMC008", contains: "named 'A'", line: 9);
     }
 
-    // ------------------------------------------------------------------ 整段文本替换
+    // ------------------------------------------------------------------ Whole-text replacement
 
     [Fact]
     public void PUBLIC_ALL_replaces_text_line_by_line()
@@ -165,7 +165,7 @@ public class RegionMacroTests
             }
             """);
 
-        r.AssertError("CSM007", contains: "can't add lines", line: 8);
+        r.AssertError("HMC007", contains: "can't add lines", line: 8);
     }
 
     [Fact]
@@ -181,7 +181,7 @@ public class RegionMacroTests
             }
             """);
 
-        r.AssertError("CSM008", contains: "added: Extra", line: 8);
+        r.AssertError("HMC008", contains: "added: Extra", line: 8);
     }
 
     [Fact]
@@ -197,10 +197,10 @@ public class RegionMacroTests
             }
             """);
 
-        r.AssertError("CSM016", line: 8);
+        r.AssertError("HMC016", line: 8);
     }
 
-    // ------------------------------------------------------------------ 发现和位置
+    // ------------------------------------------------------------------ Discovery and placement
 
     [Fact]
     public void Unknown_region_macro_stops_the_build()
@@ -218,8 +218,8 @@ public class RegionMacroTests
             }
             """);
 
-        r.AssertError("CSM015", contains: "no region macro named 'NO_SUCH_MACRO'", line: 8);
-        Assert.Single(r.Errors); // 普通 region 不受影响
+        r.AssertError("HMC015", contains: "no region macro named 'NO_SUCH_MACRO'", line: 8);
+        Assert.Single(r.Errors); // ordinary regions are unaffected
     }
 
     [Fact]
@@ -238,7 +238,7 @@ public class RegionMacroTests
             }
             """);
 
-        r.AssertError("CSM003", contains: "directly inside the same class/struct body", line: 10);
+        r.AssertError("HMC003", contains: "directly inside the same class/struct body", line: 10);
     }
 
     [Fact]
@@ -257,6 +257,6 @@ public class RegionMacroTests
             }
             """);
 
-        r.AssertError("CSM012", contains: "#region @PUBLIC_ALL is inside #region @LOG_ALL", line: 10);
+        r.AssertError("HMC012", contains: "#region @PUBLIC_ALL is inside #region @LOG_ALL", line: 10);
     }
 }

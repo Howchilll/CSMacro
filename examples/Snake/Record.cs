@@ -3,7 +3,7 @@ using static Snake.Macros.Persistence;
 
 namespace Snake;
 
-/// <summary>跨局保存的记录。要存什么，就在字段上标 [@Persist]；读写代码和格式指纹都是生成的。</summary>
+/// <summary>Records kept across games. Mark what to save with [@Persist]; the read/write code and format fingerprint are generated.</summary>
 public sealed class Record
 {
     [@Persist] public int Best;

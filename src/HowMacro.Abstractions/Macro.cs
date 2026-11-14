@@ -3,23 +3,23 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Text;
 
-namespace CSMacro
+namespace HowMacro
 {
-    /// <summary>方法宏调用可以出现的位置。</summary>
+    /// <summary>Where a method macro call may appear.</summary>
     [Flags]
     public enum MacroSite
     {
-        /// <summary>只替换调用表达式本身：<c>var x = @SQUARE(3);</c></summary>
+        /// <summary>Replaces only the call expression itself: <c>var x = @SQUARE(3);</c></summary>
         Expression = 1,
 
-        /// <summary>替换整条语句（结果包进 <c>{ }</c>）：<c>@LOG(x);</c></summary>
+        /// <summary>Replaces the whole statement (the result is wrapped in <c>{ }</c>): <c>@LOG(x);</c></summary>
         Statement = 2,
 
-        /// <summary>替换整条字段声明，结果必须是同名同类型的字段或属性：<c>public int Hp = @GETSET(...);</c></summary>
+        /// <summary>Replaces the whole field declaration; the result must be a field or property with the same name and type: <c>public int Hp = @GETSET(...);</c></summary>
         Member = 4,
     }
 
-    /// <summary>特性宏可以标记的声明。</summary>
+    /// <summary>Declarations an attribute macro can be applied to.</summary>
     [Flags]
     public enum MacroTarget
     {
@@ -31,8 +31,8 @@ namespace CSMacro
     }
 
     /// <summary>
-    /// 把一个方法标记为方法宏：在调用处原地展开。
-    /// 方法签名供 IDE 使用（补全、类型检查、跳转），方法体是展开逻辑，只在编译期执行，运行时永远不会被调用。
+    /// Marks a method as a method macro: it expands in place at the call site.
+    /// The signature is for the IDE (completion, type checking, go-to-definition); the body is the expansion logic, which runs only at compile time and is never called at runtime.
     /// </summary>
     [AttributeUsage(AttributeTargets.Method, Inherited = false)]
     public sealed class MacroAttribute : Attribute
@@ -42,10 +42,10 @@ namespace CSMacro
     }
 
     /// <summary>
-    /// 把一个特性类标记为特性宏：<c>[@Save] public int Gold;</c>
-    /// 特性宏不改它标记的声明，只产出辅助代码片段（<see cref="Macro.Fragment"/> / <see cref="Macro.Startup"/>）。
-    /// 构造函数体是展开逻辑，只在编译期执行；展开后特性本身从源码中删除，运行时不存在。
-    /// 所有特性宏先于所有方法宏执行。
+    /// Marks an attribute class as an attribute macro: <c>[@Save] public int Gold;</c>
+    /// An attribute macro doesn't change the declaration it marks; it only produces fragments of code (<see cref="Macro.Fragment"/> / <see cref="Macro.Startup"/>).
+    /// The constructor body is the expansion logic and runs only at compile time; after expansion the attribute is removed from the source and doesn't exist at runtime.
+    /// All attribute macros run before any method macro.
     /// </summary>
     [AttributeUsage(AttributeTargets.Class, Inherited = false)]
     public sealed class AttributeMacroAttribute : Attribute
@@ -55,16 +55,16 @@ namespace CSMacro
     }
 
     /// <summary>
-    /// 把一个静态方法标记为片段宏：处理 <c>#region @NAME</c> … <c>#endregion</c> 之间的成员。
-    /// 方法体是展开逻辑：逐个成员 <see cref="MacroRegionMember.Replace"/>，或者用 <see cref="Macro.RegionText"/> + <see cref="Macro.Emit"/> 整段替换。
-    /// 注意：<c>#region</c> 后面的文字对 IDE 来说只是注释，所以片段宏没有补全和跳转；名字写错会在展开时报错。
+    /// Marks a static method as a region macro: it processes the members between <c>#region @NAME</c> and <c>#endregion</c>.
+    /// The method body is the expansion logic: call <see cref="MacroRegionMember.Replace"/> per member, or replace the whole text with <see cref="Macro.RegionText"/> + <see cref="Macro.Emit"/>.
+    /// Note: the text after <c>#region</c> is just a comment to the IDE, so region macros get no completion or go-to-definition; a misspelled name is reported at expansion time.
     /// </summary>
     [AttributeUsage(AttributeTargets.Method, Inherited = false)]
     public sealed class RegionMacroAttribute : Attribute
     {
     }
 
-    /// <summary>片段宏所包裹的一个成员。没有调用 <see cref="Replace"/> 的成员保持原样。</summary>
+    /// <summary>A member wrapped by a region macro. Members that don't call <see cref="Replace"/> stay unchanged.</summary>
     public sealed class MacroRegionMember
     {
         private readonly string? _cannotReplace;
@@ -88,40 +88,40 @@ namespace CSMacro
         public string Name { get; }
         public MacroMemberKind Kind { get; }
 
-        /// <summary>声明的类型（方法为返回类型）。</summary>
+        /// <summary>The declared type (the return type for methods).</summary>
         public string Type { get; }
 
         public string Modifiers { get; }
 
-        /// <summary>成员上的普通特性原文（已去掉特性宏）。</summary>
+        /// <summary>The source text of the member's regular attributes (attribute macros removed).</summary>
         public string Attributes { get; }
 
-        /// <summary>初始值原文：<c>public int Gold = 100;</c> → <c>100</c>；没有时为 null。</summary>
+        /// <summary>The initializer's source text: <c>public int Gold = 100;</c> → <c>100</c>; null if there is none.</summary>
         public string? Initializer { get; }
 
-        /// <summary>成员的源码原文。</summary>
+        /// <summary>The member's source text.</summary>
         public string Source { get; }
 
         public int Line { get; }
 
-        /// <summary>成员的语义信息。</summary>
+        /// <summary>Semantic information about the member.</summary>
         public MacroMember? Declaration { get; }
 
-        /// <summary>这个成员已经被哪个 Member 方法宏展开（例如 "GETSET"）；片段宏通常应该跳过它。</summary>
+        /// <summary>The Member method macro that already expands this member (e.g. "GETSET"); region macros should usually skip it.</summary>
         public string? ExpandedBy { get; }
 
         public bool IsField => Kind == MacroMemberKind.Field;
         public bool IsProperty => Kind == MacroMemberKind.Property;
 
-        /// <summary>能否被替换：只有单变量字段和属性可以，且成员里不能已经有宏（宏不能包含宏）。</summary>
+        /// <summary>Whether it can be replaced: only single-variable fields and properties can, and the member must not already contain a macro (macros can't contain macros).</summary>
         public bool CanReplace => _cannotReplace == null;
 
-        /// <summary>替换成的代码；null 表示保持原样。</summary>
+        /// <summary>The replacement code; null means unchanged.</summary>
         public string? Replacement { get; private set; }
 
         /// <summary>
-        /// 把这个成员替换成 <paramref name="code"/>。结果必须仍是同名同类型的字段或属性（核心原则），
-        /// 会留在成员原来的那一行。
+        /// Replaces this member with <paramref name="code"/>. The result must still be a field or property with the same name and type (core principle),
+        /// and stays on the member's original line.
         /// </summary>
         public void Replace(string code)
         {
@@ -129,13 +129,13 @@ namespace CSMacro
             Replacement = code;
         }
 
-        /// <summary>撤销替换，保持原样。</summary>
+        /// <summary>Undoes the replacement and keeps the member unchanged.</summary>
         public void Keep() => Replacement = null;
 
         public override string ToString() => Source;
     }
 
-    /// <summary>调用处的一个实参。</summary>
+    /// <summary>One argument at a call site.</summary>
     public sealed class MacroArg
     {
         private readonly Lazy<MacroMember?> _symbol;
@@ -152,27 +152,27 @@ namespace CSMacro
             _typeInfo = new Lazy<MacroType?>(typeInfo ?? (() => null));
         }
 
-        /// <summary>实参指向的符号：<c>DataCenter.PlayerData.Hp</c> → 字段 Hp；表达式不指向符号时为 null。</summary>
+        /// <summary>The symbol the argument refers to: <c>DataCenter.PlayerData.Hp</c> → field Hp; null when the expression doesn't refer to a symbol.</summary>
         public MacroMember? Symbol => _symbol.Value;
 
-        /// <summary>实参表达式的类型信息。</summary>
+        /// <summary>Type information for the argument expression.</summary>
         public MacroType? TypeInfo => _typeInfo.Value;
 
-        /// <summary>实参的源码原文，例如 <c>DataCenter.PlayerData.Hp</c>。</summary>
+        /// <summary>The argument's source text, e.g. <c>DataCenter.PlayerData.Hp</c>.</summary>
         public string Text { get; }
 
-        /// <summary>编译器推断出的类型，例如 <c>int</c>；无法推断时为 null。</summary>
+        /// <summary>The type the compiler inferred, e.g. <c>int</c>; null if it can't be inferred.</summary>
         public string? Type { get; }
 
         public bool HasConstant { get; }
 
-        /// <summary>实参是编译期常量时的值，例如 <c>"Atk"</c> 对应字符串 Atk。</summary>
+        /// <summary>The value when the argument is a compile-time constant, e.g. the string Atk for <c>"Atk"</c>.</summary>
         public object? Constant { get; }
 
         public override string ToString() => Text;
     }
 
-    /// <summary>特性宏产出的一个代码片段，连同它所标记的声明的信息。</summary>
+    /// <summary>A code fragment produced by an attribute macro, together with information about the declaration it marks.</summary>
     public sealed class MacroFragment
     {
         public MacroFragment(string channel, string code, string macroName, string? containingType,
@@ -192,22 +192,22 @@ namespace CSMacro
         public string Channel { get; }
         public string Code { get; }
 
-        /// <summary>产出这个片段的特性宏名字。</summary>
+        /// <summary>Name of the attribute macro that produced this fragment.</summary>
         public string MacroName { get; }
 
-        /// <summary>被标记声明所在的类型全名；标记在类型上时就是该类型本身。</summary>
+        /// <summary>Full name of the type containing the marked declaration; the type itself when a type is marked.</summary>
         public string? ContainingType { get; }
 
-        /// <summary>被标记的成员名（标记在类型上时为类型名）。</summary>
+        /// <summary>Name of the marked member (the type name when a type is marked).</summary>
         public string? MemberName { get; }
 
-        /// <summary>被标记成员的类型（方法为返回类型，类型上为 null）。</summary>
+        /// <summary>Type of the marked member (the return type for methods; null for types).</summary>
         public string? MemberType { get; }
 
         public string FilePath { get; }
         public int Line { get; }
 
-        /// <summary>被标记成员的语义信息；标记在类型上时为 null。</summary>
+        /// <summary>Semantic information about the marked member; null when a type is marked.</summary>
         public MacroMember? Declaration { get; }
 
         public override string ToString() => $"{ContainingType}.{MemberName} [{Channel}] {Code}";
@@ -227,14 +227,14 @@ namespace CSMacro
         public string Text { get; }
     }
 
-    /// <summary>由展开器为每一次宏执行填充的上下文。宏作者通过 <see cref="Macro"/> 访问。</summary>
+    /// <summary>The context the expander fills in for each macro run. Macro authors access it through <see cref="Macro"/>.</summary>
     [EditorBrowsable(EditorBrowsableState.Advanced)]
     public sealed class MacroContext
     {
         public string MacroName { get; set; } = "";
         public MacroSite Site { get; set; }
 
-        /// <summary>特性宏所标记的声明种类；方法宏为 null。</summary>
+        /// <summary>Kind of declaration an attribute macro marks; null for method macros.</summary>
         public MacroTarget? Target { get; set; }
 
         public string FilePath { get; set; } = "";
@@ -253,13 +253,13 @@ namespace CSMacro
         public MacroType? ContainingTypeInfo { get; set; }
         public Func<string, MacroType?>? TypeLookup { get; set; }
 
-        /// <summary>方法宏阶段：所有特性宏产出的片段，按频道分组。</summary>
+        /// <summary>Method macro phase: all fragments produced by attribute macros, grouped by channel.</summary>
         public IReadOnlyDictionary<string, IReadOnlyList<MacroFragment>>? AvailableFragments { get; set; }
 
-        /// <summary>片段宏：被包裹的成员；其他宏为 null。</summary>
+        /// <summary>Region macros: the wrapped members; null for other macros.</summary>
         public IReadOnlyList<MacroRegionMember>? RegionMembers { get; set; }
 
-        /// <summary>片段宏：#region 与 #endregion 之间的原文。</summary>
+        /// <summary>Region macros: the source text between #region and #endregion.</summary>
         public string? RegionText { get; set; }
 
         public StringBuilder Output { get; } = new StringBuilder();
@@ -268,64 +268,64 @@ namespace CSMacro
         public List<MacroMessage> Messages { get; } = new List<MacroMessage>();
     }
 
-    /// <summary>宏体里使用的 API：读取调用处信息，输出代码或片段。</summary>
+    /// <summary>The API used inside macro bodies: read information about the call site, emit code or fragments.</summary>
     public static class Macro
     {
         [ThreadStatic] internal static MacroContext? Current;
 
         private static MacroContext Ctx => Current ?? throw new InvalidOperationException(
-            "CSMacro: a macro was executed at runtime. Macro bodies only run during macro expansion — " +
-            "make sure the CSMacro build step is enabled for the project that uses it.");
+            "HowMacro: a macro was executed at runtime. Macro bodies only run during macro expansion — " +
+            "make sure the HowMacro build step is enabled for the project that uses it.");
 
-        // ------------------------------------------------------------------ 调用处信息
+        // ------------------------------------------------------------------ Call site information
 
-        /// <summary>当前是否处在宏展开过程中。</summary>
+        /// <summary>Whether a macro expansion is currently running.</summary>
         public static bool IsExpanding => Current != null;
 
-        /// <summary>正在执行的宏的名字。</summary>
+        /// <summary>Name of the macro being run.</summary>
         public static string Self => Ctx.MacroName;
 
-        /// <summary>当前执行的是特性宏（true）还是方法宏（false）。</summary>
+        /// <summary>Whether the running macro is an attribute macro (true) or a method macro (false).</summary>
         public static bool IsAttributeMacro => Ctx.Target != null;
 
-        /// <summary>当前执行的是片段宏（<c>#region @NAME</c>）。</summary>
+        /// <summary>Whether the running macro is a region macro (<c>#region @NAME</c>).</summary>
         public static bool IsRegionMacro => Ctx.RegionMembers != null;
 
-        /// <summary>片段宏：被包裹的成员（按顺序）。逐个 <see cref="MacroRegionMember.Replace"/>，没替换的保持原样。</summary>
+        /// <summary>Region macros: the wrapped members, in order. Call <see cref="MacroRegionMember.Replace"/> per member; members you don't replace stay unchanged.</summary>
         public static IReadOnlyList<MacroRegionMember> RegionMembers => Ctx.RegionMembers
             ?? throw new InvalidOperationException($"Macro.RegionMembers is only available in region macros; @{Self} is not one");
 
         /// <summary>
-        /// 片段宏：#region 与 #endregion 之间的原文，用于整段文本替换：用 <see cref="Emit"/> 输出替换后的全文。
-        /// 输出的行数不能超过原文（否则后面的行号会错位），少了会自动补齐。
-        /// 和逐成员替换二选一。
+        /// Region macros: the source text between #region and #endregion, for whole-text replacement: emit the replaced text with <see cref="Emit"/>.
+        /// The output can't have more lines than the original (or every following line number would shift); missing lines are padded.
+        /// Use either this or per-member replacement, not both.
         /// </summary>
         public static string RegionText => Ctx.RegionText
             ?? throw new InvalidOperationException($"Macro.RegionText is only available in region macros; @{Self} is not one");
 
-        /// <summary>方法宏：这次调用实际匹配到的位置类型。</summary>
+        /// <summary>Method macros: the site this call actually matched.</summary>
         public static MacroSite Site => Ctx.Site;
 
-        /// <summary>特性宏：被标记的声明种类。</summary>
+        /// <summary>Attribute macros: the kind of the marked declaration.</summary>
         public static MacroTarget Target => Ctx.Target
             ?? throw new InvalidOperationException($"Macro.Target is only available in attribute macros; @{Self} is a method macro");
 
         public static string File => Ctx.FilePath;
         public static string FileName => System.IO.Path.GetFileName(Ctx.FilePath);
 
-        /// <summary>调用（或特性）所在的源码行号（从 1 开始）。</summary>
+        /// <summary>Source line of the call (or attribute), starting at 1.</summary>
         public static int Line => Ctx.Line;
 
         public static IReadOnlyList<MacroArg> Args => Ctx.Args;
         public static int ArgCount => Ctx.Args.Count;
 
-        /// <summary>第 i 个实参的源码原文。</summary>
+        /// <summary>Source text of argument i.</summary>
         public static string Arg(int i) => GetArg(i).Text;
 
-        /// <summary>第 i 个实参的类型（显示名）。</summary>
+        /// <summary>Type of argument i (display name).</summary>
         public static string? ArgType(int i) => GetArg(i).Type;
 
-        /// <summary>第 i 个实参的编译期常量值；不是常量时报错。</summary>
+        /// <summary>Compile-time constant value of argument i; reports an error if it isn't a constant.</summary>
         public static object? ArgValue(int i)
         {
             var a = GetArg(i);
@@ -334,50 +334,50 @@ namespace CSMacro
             return a.Constant;
         }
 
-        /// <summary>被声明的名字：方法宏中 <c>public int Hp = @M()</c> 的 Hp；特性宏中被标记的成员/类型名。</summary>
+        /// <summary>The declared name: Hp in <c>public int Hp = @M()</c> for method macros; the marked member or type name for attribute macros.</summary>
         public static string Name => Ctx.MemberName ?? throw NotInDeclaration(nameof(Name));
 
-        /// <summary>被声明的类型：<c>public int Hp = @M()</c> 中的 int；特性宏标记方法时为返回类型。</summary>
+        /// <summary>The declared type: int in <c>public int Hp = @M()</c>; the return type when an attribute macro marks a method.</summary>
         public static string Type => Ctx.MemberType ?? throw NotInDeclaration(nameof(Type));
 
-        /// <summary>声明上的修饰符：<c>public static</c> 等，可能为空字符串。</summary>
+        /// <summary>Modifiers on the declaration, such as <c>public static</c>; may be an empty string.</summary>
         public static string Modifiers => Ctx.Modifiers ?? "";
 
-        /// <summary>字段声明上的普通特性原文（已去掉特性宏），例如 <c>[SerializeField]</c>；没有时为空字符串。</summary>
+        /// <summary>Source text of the field's regular attributes (attribute macros removed), e.g. <c>[SerializeField]</c>; empty string if none.</summary>
         public static string Attributes => Ctx.Attributes ?? "";
 
-        /// <summary>所在类型的全名；特性宏标记在类型上时就是该类型本身。</summary>
+        /// <summary>Full name of the containing type; the type itself when an attribute macro marks a type.</summary>
         public static string ContainingType => Ctx.ContainingType ?? "";
 
-        // ------------------------------------------------------------------ 语义信息（IDE 视角，懒加载）
+        // ------------------------------------------------------------------ Semantic information (the IDE's view, computed lazily)
 
-        /// <summary>第 i 个实参指向的符号：<c>@GETSET(DataCenter.PlayerData.Hp)</c> → 字段 Hp（可查 CanWrite 等）。</summary>
+        /// <summary>The symbol argument i refers to: <c>@GETSET(DataCenter.PlayerData.Hp)</c> → field Hp (check CanWrite and so on).</summary>
         public static MacroMember? ArgSymbol(int i) => GetArg(i).Symbol;
 
-        /// <summary>第 i 个实参表达式的类型信息（可查成员、特性、基类等）。</summary>
+        /// <summary>Type information for argument i (members, attributes, base type and so on).</summary>
         public static MacroType? ArgTypeInfo(int i) => GetArg(i).TypeInfo;
 
         /// <summary>
-        /// 被声明/被标记的成员：方法宏中 <c>public int Hp = @M()</c> 的 Hp（字段或局部变量）；
-        /// 特性宏中被标记的字段、属性、方法。不在声明中或标记在类型上时为 null。
+        /// The declared or marked member: Hp in <c>public int Hp = @M()</c> for method macros (a field or local variable);
+        /// the marked field, property or method for attribute macros. Null outside a declaration or when a type is marked.
         /// </summary>
         public static MacroMember? Declaration => Ctx.Declaration;
 
-        /// <summary><see cref="Type"/> 的类型信息。</summary>
+        /// <summary>Type information for <see cref="Type"/>.</summary>
         public static MacroType? TypeInfo => Ctx.DeclaredTypeInfo;
 
-        /// <summary><see cref="ContainingType"/> 的类型信息；特性宏标记在类型上时就是该类型本身。</summary>
+        /// <summary>Type information for <see cref="ContainingType"/>; the type itself when an attribute macro marks a type.</summary>
         public static MacroType? ContainingTypeInfo => Ctx.ContainingTypeInfo;
 
-        /// <summary>按元数据名查找任意类型，例如 <c>"Demo.App.Player"</c>、<c>"System.Collections.Generic.List`1"</c>。</summary>
+        /// <summary>Looks up any type by metadata name, e.g. <c>"Demo.App.Player"</c> or <c>"System.Collections.Generic.List`1"</c>.</summary>
         public static MacroType? FindType(string metadataName) => Ctx.TypeLookup?.Invoke(metadataName);
 
-        /// <summary>当前编译定义了某个预处理符号（如 DEBUG）时返回 true。宏可以据此生成不同的实现。</summary>
+        /// <summary>True when the current compilation defines a preprocessor symbol (such as DEBUG). Macros can generate different implementations based on it.</summary>
         public static bool IsDefined(string symbol) => System.Linq.Enumerable.Contains(Ctx.Defines, symbol);
 
-        // ------------------------------------------------------------------ 方法宏：原地展开
+        // ------------------------------------------------------------------ Method macros: expand in place
 
-        /// <summary>方法宏：追加要展开成的代码。多次调用会依次拼接；换行会被压成一行以保持行号。</summary>
+        /// <summary>Method macros: appends code to expand into. Multiple calls are concatenated; line breaks are folded onto one line to keep line numbers.</summary>
         public static void Emit(string code)
         {
             if (IsAttributeMacro)
@@ -387,8 +387,8 @@ namespace CSMacro
         }
 
         /// <summary>
-        /// 方法宏：读取特性宏产出到某个频道的全部片段（按文件、行排序）。
-        /// 所有特性宏都在方法宏之前执行，所以这里拿到的是完整的集合。
+        /// Method macros: reads all fragments attribute macros produced on a channel (sorted by file and line).
+        /// All attribute macros run before method macros, so the set is complete.
         /// </summary>
         public static IReadOnlyList<MacroFragment> Fragments(string channel)
         {
@@ -400,29 +400,29 @@ namespace CSMacro
                 : Array.Empty<MacroFragment>();
         }
 
-        // ------------------------------------------------------------------ 特性宏：产出片段
+        // ------------------------------------------------------------------ Attribute macros: produce fragments
 
         /// <summary>
-        /// 特性宏：向频道 <paramref name="channel"/> 产出一个片段，供方法宏用 <see cref="Fragments"/> 读取。
-        /// 片段自动带上被标记声明的信息（所在类型、名字、类型、位置），<paramref name="code"/> 可以留空。
+        /// Attribute macros: produces a fragment on <paramref name="channel"/>, for method macros to read with <see cref="Fragments"/>.
+        /// The fragment automatically carries information about the marked declaration (containing type, name, type, location); <paramref name="code"/> may be empty.
         /// </summary>
         public static void Fragment(string channel, string code = "") =>
             RequireAttributeMacro(nameof(Fragment)).ProducedFragments.Add(MakeFragment(channel, code));
 
         /// <summary>
-        /// 特性宏：产出一段启动代码（语句）。引擎把所有启动代码汇总成一个独立的辅助脚本，
-        /// 程序启动时自动执行（默认用 <c>[ModuleInitializer]</c>），不需要任何手写代码。
-        /// 启动代码只能引用源码里已有的名字。
+        /// Attribute macros: produces startup code (statements). The engine collects all startup code into a separate generated startup script
+        /// that runs automatically when the program starts (via <c>[ModuleInitializer]</c> by default), with no hand-written code.
+        /// Startup code may only reference names that already exist in the source.
         /// </summary>
         public static void Startup(string code) =>
             RequireAttributeMacro(nameof(Startup)).ProducedStartup.Add(MakeFragment("startup", code));
 
-        // ------------------------------------------------------------------ 通用
+        // ------------------------------------------------------------------ General
 
         public static void Error(string message) => Ctx.Messages.Add(new MacroMessage(MacroMessageSeverity.Error, message));
         public static void Warning(string message) => Ctx.Messages.Add(new MacroMessage(MacroMessageSeverity.Warning, message));
 
-        /// <summary>把任意文本转成 C# 字符串字面量（带引号、已转义）。</summary>
+        /// <summary>Turns any text into a C# string literal (quoted and escaped).</summary>
         public static string Quote(string s)
         {
             var sb = new StringBuilder(s.Length + 2).Append('"');
@@ -466,9 +466,9 @@ namespace CSMacro
     }
 }
 
-namespace CSMacro.Hosting
+namespace HowMacro.Hosting
 {
-    /// <summary>供展开器宿主使用：在给定上下文中执行一次宏，返回输出的代码。</summary>
+    /// <summary>For expansion hosts: runs a macro once in the given context and returns the emitted code.</summary>
     [EditorBrowsable(EditorBrowsableState.Never)]
     public static class MacroHost
     {

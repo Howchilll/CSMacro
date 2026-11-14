@@ -1,26 +1,26 @@
 using System.Linq;
 using System.Text.RegularExpressions;
-using CSMacro;
+using HowMacro;
 
 namespace Demo.Macros
 {
     /// <summary>
-    /// 示例宏。每个方法的签名给 IDE 看（补全、类型检查、F12 跳转），
-    /// 方法体在编译期执行，用 Macro.Emit 输出代码。
+    /// Sample macros. Each method's signature is for the IDE (completion, type checking, F12),
+    /// and its body runs at compile time, emitting code with Macro.Emit.
     /// </summary>
     public static class M
     {
         /// <summary>
-        /// 把字段变成转发属性：
+        /// Turns the field into a forwarding property:
         /// <c>public int Hp = @GETSET(DataCenter.PlayerData.Hp);</c>
-        /// 展开为 <c>public int Hp { get => DataCenter.PlayerData.Hp; set => DataCenter.PlayerData.Hp = value; }</c>
+        /// Expands to <c>public int Hp { get => DataCenter.PlayerData.Hp; set => DataCenter.PlayerData.Hp = value; }</c>
         /// </summary>
         [Macro(MacroSite.Member)]
         public static T GETSET<T>(T target)
         {
             var path = Macro.Arg(0);
 
-            // 语义检查：目标必须是可写的字段或属性，否则在宏的调用处报一个清楚的错误。
+            // Semantic check: the target must be a writable field or property; otherwise report a clear error at the macro call.
             var symbol = Macro.ArgSymbol(0);
             if (symbol == null || !symbol.IsFieldOrProperty)
             {
@@ -39,10 +39,10 @@ namespace Demo.Macros
         }
 
         /// <summary>
-        /// 统一规则：值改变时自动打 log。
+        /// One shared rule: log every change of the value.
         /// <c>public int Gold = @LOGGED(100);</c>
-        /// 展开为带 setter 逻辑的属性，初值 100（初始化不触发 log）。
-        /// 名字和类型都由源码声明；宏只决定 setter 怎么实现，用 C# 14 的 field 关键字，不引入任何新名字。
+        /// Expands to a property with setter logic and initial value 100 (initialization doesn't log).
+        /// The name and type are declared in source; the macro only decides how the setter works, using the C# 14 field keyword, without introducing any new names.
         /// </summary>
         [Macro(MacroSite.Member)]
         public static T LOGGED<T>(T initial)
@@ -59,7 +59,7 @@ namespace Demo.Macros
         }
 
         /// <summary>
-        /// 打印表达式及其值，带文件名和行号：<c>@LOG(player.Hp);</c>
+        /// Prints an expression and its value, with file name and line: <c>@LOG(player.Hp);</c>
         /// </summary>
         [Macro(MacroSite.Statement)]
         public static void LOG(object value)
@@ -70,7 +70,7 @@ namespace Demo.Macros
         }
 
         /// <summary>
-        /// 断言，失败时消息里带原始表达式：<c>@ASSERT(hp > 0);</c>
+        /// Assertion whose failure message includes the original expression: <c>@ASSERT(hp > 0);</c>
         /// </summary>
         [Macro(MacroSite.Statement)]
         public static void ASSERT(bool condition)
@@ -79,7 +79,7 @@ namespace Demo.Macros
             Macro.Emit($"if (!({Macro.Arg(0)})) throw new System.InvalidOperationException({message});");
         }
 
-        /// <summary>表达式宏：<c>@SQUARE(x)</c> → <c>((x) * (x))</c></summary>
+        /// <summary>Expression macro: <c>@SQUARE(x)</c> → <c>((x) * (x))</c></summary>
         [Macro]
         public static T SQUARE<T>(T x)
         {
@@ -88,7 +88,7 @@ namespace Demo.Macros
         }
 
         /// <summary>
-        /// 方法宏消费特性宏的片段：把 obj 类型上所有标了 [@Track] 的成员拼成一行文本。
+        /// A method macro consuming attribute-macro fragments: joins all [@Track] members of obj's type into one line of text.
         /// <c>@DUMP_TRACKED(p)</c> → <c>("Hp=" + p.Hp + ", " + "Gold=" + p.Gold)</c>
         /// </summary>
         [Macro]
@@ -113,9 +113,9 @@ namespace Demo.Macros
         }
 
         /// <summary>
-        /// 用语义信息遍历类型成员：把 obj 所有公开、可读的实例字段和属性拼成一行文本。
+        /// Walks the type's members via semantic information: joins all public, readable instance fields and properties of obj into one line of text.
         /// <c>@DUMP(p)</c> → <c>("Player { Hp=" + p.Hp + ", Mp=" + p.Mp + ... + " }")</c>
-        /// 加了 [Obsolete] 的成员会被跳过（演示读取成员上的特性）。
+        /// Members marked [Obsolete] are skipped (shows reading attributes on members).
         /// </summary>
         [Macro]
         public static string DUMP<T>(T obj)
@@ -139,7 +139,7 @@ namespace Demo.Macros
             return "";
         }
 
-        /// <summary>调用所在的源码行号，编译期常量。</summary>
+        /// <summary>The source line of the call, as a compile-time constant.</summary>
         [Macro]
         public static int LINE()
         {
@@ -148,8 +148,8 @@ namespace Demo.Macros
         }
 
         /// <summary>
-        /// 编译期拼出一个 switch：<c>string s = @NAME_OF_INDEX(i, "Red", "Green");</c>
-        /// 演示宏可以根据实参在编译期生成任意逻辑。
+        /// Builds a switch at compile time: <c>string s = @NAME_OF_INDEX(i, "Red", "Green");</c>
+        /// Shows that a macro can generate arbitrary logic from its arguments at compile time.
         /// </summary>
         [Macro]
         public static string NAME_OF_INDEX(int index, params string[] names)

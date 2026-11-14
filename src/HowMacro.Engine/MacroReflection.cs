@@ -2,12 +2,12 @@ using System;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.ExceptionServices;
-using CSMacro;
-using CSMacro.Hosting;
+using HowMacro;
+using HowMacro.Hosting;
 
-namespace CSMacro.Engine
+namespace HowMacro.Engine
 {
-    /// <summary>在已加载的宏程序集里找到宏方法并在给定上下文中执行。各宿主只负责"怎么加载程序集"。</summary>
+    /// <summary>Finds a macro method in a loaded macro assembly and runs it in the given context. Hosts only decide how assemblies are loaded.</summary>
     public static class MacroReflection
     {
         public static void Invoke(Assembly assembly, MacroMethod m, MacroContext context)
@@ -16,7 +16,7 @@ namespace CSMacro.Engine
 
             if (m.MethodName == MacroMethod.Constructor)
             {
-                // 特性宏：构造函数体就是展开逻辑。
+                // Attribute macro: the constructor body is the expansion logic.
                 var ctor = type
                     .GetConstructors(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
                     .FirstOrDefault(c => c.GetParameters().Length == m.ParameterCount)
@@ -33,7 +33,7 @@ namespace CSMacro.Engine
                                      && x.GetParameters().Length == m.ParameterCount)
                 ?? throw new MissingMethodException(m.TypeName, m.MethodName);
 
-            // 签名只服务于 IDE；展开时实参一律传默认值，宏通过 Macro.Arg(i) 读源码原文。
+            // The signature only serves the IDE; during expansion every argument is a default value and the macro reads the source text via Macro.Arg(i).
             if (method.IsGenericMethodDefinition)
                 method = method.MakeGenericMethod(Enumerable.Repeat(typeof(object), m.Arity).ToArray());
 

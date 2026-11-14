@@ -2,15 +2,15 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
-using CSMacro;
+using HowMacro;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
-namespace CSMacro.Engine
+namespace HowMacro.Engine
 {
     /// <summary>
-    /// 用 Roslyn 符号实现 CSMacro 的语义信息模型。基于展开前的编译（IDE 视角），
-    /// 同一个符号只包装一次，所有属性都是懒计算的。
+    /// Implements HowMacro's semantic information model on top of Roslyn symbols. Based on the compilation before expansion (the IDE's view);
+    /// each symbol is wrapped once and every property is computed lazily.
     /// </summary>
     internal sealed class MacroSemantics
     {
@@ -59,7 +59,7 @@ namespace CSMacro.Engine
                 .Select(a => new MacroAttributeInfo(
                     a.AttributeClass!.Name,
                     a.AttributeClass.ToDisplayString(),
-                    a.AttributeClass.GetAttributes().Any(x => x.AttributeClass?.ToDisplayString() == "CSMacro.AttributeMacroAttribute"),
+                    a.AttributeClass.GetAttributes().Any(x => x.AttributeClass?.ToDisplayString() == "HowMacro.AttributeMacroAttribute"),
                     a.ConstructorArguments.Select(Value).ToArray(),
                     a.NamedArguments.ToDictionary(kv => kv.Key, kv => Value(kv.Value))))
                 .ToArray();
@@ -77,7 +77,7 @@ namespace CSMacro.Engine
             return (span.Path, span.StartLinePosition.Line + 1);
         }
 
-        /// <summary>字段声明的初始值是不是一个 Member 方法宏：<c>public int Gold = @LOGGED(100)</c> → "LOGGED"。</summary>
+        /// <summary>Whether a field's initializer is a Member method macro: <c>public int Gold = @LOGGED(100)</c> → "LOGGED".</summary>
         public string? ExpandedBy(IFieldSymbol field)
         {
             foreach (var reference in field.DeclaringSyntaxReferences)
@@ -89,7 +89,7 @@ namespace CSMacro.Engine
                 if (!(model.GetSymbolInfo(invocation).Symbol is IMethodSymbol method)) continue;
 
                 var attr = method.OriginalDefinition.GetAttributes()
-                    .FirstOrDefault(a => a.AttributeClass?.ToDisplayString() == "CSMacro.MacroAttribute");
+                    .FirstOrDefault(a => a.AttributeClass?.ToDisplayString() == "HowMacro.MacroAttribute");
                 if (attr == null) continue;
 
                 var sites = attr.ConstructorArguments.Length > 0 && attr.ConstructorArguments[0].Value is int v ? (MacroSite)v : MacroSite.Expression;

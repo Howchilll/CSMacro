@@ -4,14 +4,14 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
-    <!-- dotnet build -p:TraceState=true：打开 #region @TRACE_STATE 的状态跟踪（不加就完全不生成跟踪代码） -->
+    <!-- dotnet build -p:TraceState=true turns on the #region @TRACE_STATE state tracing (without it no tracing code is generated at all) -->
     <DefineConstants Condition="'$(TraceState)' == 'true'">$(DefineConstants);TRACE_STATE</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- 接入 CSMacro：引用包 + 指定宏写在哪个文件夹。就这两行。 -->
-    <PackageReference Include="CSMacro" Version="$(CSMacroVersion)" PrivateAssets="all" />
-    <CSMacroDefinition Include="Macros/**/*.cs" />
+    <!-- Using HowMacro: reference the package + say which folder holds the macros. Just these two lines. -->
+    <PackageReference Include="HowMacro" Version="$(HowMacroVersion)" PrivateAssets="all" />
+    <HowMacroDefinition Include="Macros/**/*.cs" />
 
     <None Update="snake.ini" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>

@@ -1,14 +1,14 @@
 using System;
 using System.Linq;
-using CSMacro;
+using HowMacro;
 
 namespace Snake.Macros;
 
 public static class Properties
 {
     /// <summary>
-    /// 变更通知属性：<c>public int Score = @OBSERVABLE(0);</c>
-    /// 值真的变了才赋值并调用 <c>OnPropertyChanged(nameof(Score))</c>（所在类型必须自己声明它）。
+    /// Change-notifying property: <c>public int Score = @OBSERVABLE(0);</c>
+    /// Assigns and calls <c>OnPropertyChanged(nameof(Score))</c> only when the value actually changes (the containing type must declare it).
     /// </summary>
     [Macro(MacroSite.Member)]
     public static T OBSERVABLE<T>(T initial)
@@ -26,8 +26,8 @@ public static class Properties
     }
 
     /// <summary>
-    /// 范围约束属性：<c>public int Width = @CLAMP(10, 60, 30);</c>
-    /// 赋值时自动夹到 [min, max]；常量参数在编译期检查 min ≤ initial ≤ max。所在类型声明了 OnPropertyChanged 时顺带通知。
+    /// Range-clamped property: <c>public int Width = @CLAMP(10, 60, 30);</c>
+    /// Assignments are clamped to [min, max]; with constant arguments, min ≤ initial ≤ max is checked at compile time. Also notifies when the containing type declares OnPropertyChanged.
     /// </summary>
     [Macro(MacroSite.Member)]
     public static T CLAMP<T>(T min, T max, T initial)

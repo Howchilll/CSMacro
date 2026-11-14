@@ -1,13 +1,13 @@
 using System;
 using System.Linq;
-using CSMacro;
+using HowMacro;
 
 namespace Snake.Macros;
 
 /// <summary>
-/// 按键绑定：<c>[@Key("Turn up", ConsoleKey.W, ConsoleKey.UpArrow)] void Up() => Turn(Dir.Up);</c>
-/// 标在无参方法上。由 <c>@DISPATCH_KEYS(key)</c> 生成分发按键的 switch，由 <c>@KEY_HELP()</c> 生成按键说明。
-/// 同一个键绑定了两次会在编译期报错。
+/// Key binding: <c>[@Key("Turn up", ConsoleKey.W, ConsoleKey.UpArrow)] void Up() => Turn(Dir.Up);</c>
+/// Put it on a parameterless method. <c>@DISPATCH_KEYS(key)</c> generates the switch that dispatches keys, <c>@KEY_HELP()</c> generates the key help.
+/// Binding the same key twice is a compile-time error.
 /// </summary>
 [AttributeMacro(MacroTarget.Method)]
 public sealed class Key : Attribute
@@ -28,7 +28,7 @@ public sealed class Key : Attribute
             return;
         }
 
-        // 片段：方法名 | 说明 | 键值1,键值2 | 键名1,键名2
+        // Fragment: method name | help | key code 1,key code 2 | key name 1,key name 2
         var indices = Enumerable.Range(1, Macro.ArgCount - 1).ToArray();
         Macro.Fragment("keys", string.Join(Separator.ToString(),
             method.Name,
@@ -41,7 +41,7 @@ public sealed class Key : Attribute
 public static class Keys
 {
     /// <summary>
-    /// <c>@DISPATCH_KEYS(key);</c>：key 是 ConsoleKey。为所在类型里所有 [@Key] 方法生成一个 switch。
+    /// <c>@DISPATCH_KEYS(key);</c> where key is a ConsoleKey. Generates one switch over all [@Key] methods of the containing type.
     /// </summary>
     [Macro(MacroSite.Statement)]
     public static void DISPATCH_KEYS(ConsoleKey key)
@@ -57,7 +57,7 @@ public static class Keys
         Macro.Emit("}");
     }
 
-    /// <summary><c>@KEY_HELP()</c>：所在类型的按键说明，例如 "W/UpArrow turn up · P/Spacebar pause"。</summary>
+    /// <summary><c>@KEY_HELP()</c>: key help for the containing type, e.g. "W/UpArrow turn up · P/Spacebar pause".</summary>
     [Macro]
     public static string KEY_HELP()
     {

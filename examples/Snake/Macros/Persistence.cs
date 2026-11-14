@@ -1,13 +1,13 @@
 using System;
 using System.Linq;
 using System.Text;
-using CSMacro;
+using HowMacro;
 
 namespace Snake.Macros;
 
 /// <summary>
-/// <c>[@Persist]</c>：标记要存档的字段。由 <c>@WRITE_PERSISTED(writer)</c> / <c>@READ_PERSISTED(reader)</c>
-/// 生成强类型的二进制读写代码，带编译期算好的格式指纹：存档字段变了，读到旧档会明确报错而不是读出错位的数据。
+/// <c>[@Persist]</c>: marks a field to save. <c>@WRITE_PERSISTED(writer)</c> / <c>@READ_PERSISTED(reader)</c>
+/// generate strongly typed binary read/write code with a format fingerprint computed at compile time: if the saved fields change, reading an old save fails clearly instead of reading misaligned data.
 /// </summary>
 [AttributeMacro(MacroTarget.Field | MacroTarget.Property)]
 public sealed class Persist : Attribute
@@ -53,7 +53,7 @@ public static class Persistence
 
     private static string Schema() => string.Join(", ", Members().Select(m => $"{m.Name}:{m.Type}"));
 
-    /// <summary>FNV-1a：string.GetHashCode 在 .NET 里每个进程随机化，不能用于持久化。</summary>
+    /// <summary>FNV-1a: string.GetHashCode is randomized per process in .NET, so it can't be used for persistence.</summary>
     private static string Fingerprint()
     {
         unchecked

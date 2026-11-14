@@ -1,16 +1,16 @@
 using System;
 using System.Linq;
-using CSMacro;
+using HowMacro;
 
 namespace Showcase.Macros
 {
-    /// <summary>属性类宏：变更通知、范围约束。</summary>
+    /// <summary>Property macros: change notification and range clamping.</summary>
     public static class Properties
     {
         /// <summary>
-        /// 变更通知属性：<c>public string Name = @OBSERVABLE("Nameless");</c>
-        /// 值真的变了才赋值并调用 <c>OnPropertyChanged(nameof(Name))</c>。
-        /// 所在类必须自己声明 <c>void OnPropertyChanged(string)</c>（名字由源码声明，宏不造名字），否则编译期报错。
+        /// Change-notifying property: <c>public string Name = @OBSERVABLE("Nameless");</c>
+        /// Assigns and calls <c>OnPropertyChanged(nameof(Name))</c> only when the value actually changes.
+        /// The containing class must declare <c>void OnPropertyChanged(string)</c> itself (names come from source; macros don't invent them), otherwise it is a compile-time error.
         /// </summary>
         [Macro(MacroSite.Member)]
         public static T OBSERVABLE<T>(T initial)
@@ -30,9 +30,9 @@ namespace Showcase.Macros
         }
 
         /// <summary>
-        /// 范围约束属性：<c>public int Hp = @CLAMP(0, 100, 100);</c>
-        /// 赋值时自动夹到 [min, max]。编译期检查：类型必须是数值；常量参数要满足 min ≤ initial ≤ max。
-        /// 如果所在类声明了 <c>OnPropertyChanged(string)</c>，变化时顺带发通知（按语义信息自动组合，不需要嵌套宏）。
+        /// Range-clamped property: <c>public int Hp = @CLAMP(0, 100, 100);</c>
+        /// Assignments are clamped to [min, max]. Compile-time checks: the type must be numeric; constant arguments must satisfy min ≤ initial ≤ max.
+        /// If the containing class declares <c>OnPropertyChanged(string)</c>, changes also notify (composed via semantic information, no nested macros needed).
         /// </summary>
         [Macro(MacroSite.Member)]
         public static T CLAMP<T>(T min, T max, T initial)
@@ -60,7 +60,7 @@ namespace Showcase.Macros
             return default!;
         }
 
-        /// <summary>所在类有 <c>OnPropertyChanged(string)</c> 时返回调用它的语句，否则 null。</summary>
+        /// <summary>The statement that calls <c>OnPropertyChanged(string)</c> if the containing class has it, otherwise null.</summary>
         private static string? NotifyCall()
         {
             var hasNotify = Macro.ContainingTypeInfo?.MembersNamed("OnPropertyChanged")

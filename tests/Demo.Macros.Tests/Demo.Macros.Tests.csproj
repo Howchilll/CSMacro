@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- 宏作者的测试项目示例：引用宏库 + CSMacro.Testing，用任意测试框架（这里是 xUnit）。 -->
+  <!-- Sample test project for macro authors: references the macro library + HowMacro.Testing, with any test framework (xUnit here). -->
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -15,9 +15,9 @@
 
   <ItemGroup>
     <ProjectReference Include="../../samples/Demo.Macros/Demo.Macros.csproj" />
-    <ProjectReference Include="../../src/CSMacro.Testing/CSMacro.Testing.csproj" />
-    <!-- CSMacro.Testing 对引擎的引用是 PrivateAssets（引擎打进 NuGet 包里，不单独发包），源码引用时要直接引用一下 -->
-    <ProjectReference Include="../../src/CSMacro.Engine/CSMacro.Engine.csproj" />
+    <ProjectReference Include="../../src/HowMacro.Testing/HowMacro.Testing.csproj" />
+    <!-- HowMacro.Testing references the engine with PrivateAssets (the engine is bundled into its NuGet package, not shipped separately), so source references need the engine directly -->
+    <ProjectReference Include="../../src/HowMacro.Engine/HowMacro.Engine.csproj" />
   </ItemGroup>
 
 </Project>

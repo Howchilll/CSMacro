@@ -3,8 +3,8 @@ using static Showcase.Macros.Commands;
 namespace Showcase.App;
 
 /// <summary>
-/// 调试控制台。命令由各处方法上的 [@Command] 在启动时自动注册，这里不维护任何命令表；
-/// 帮助文本在编译期生成（命令名重复会在编译期报错）。
+/// Debug console. Commands are registered at startup by [@Command] on methods elsewhere; no command table is kept here.
+/// The help text is generated at compile time (duplicate command names are compile-time errors).
 /// </summary>
 public static class DebugConsole
 {

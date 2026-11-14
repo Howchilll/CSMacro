@@ -1,12 +1,12 @@
 using System;
 using System.Linq;
-using CSMacro;
+using HowMacro;
 
 namespace Snake.Macros;
 
 /// <summary>
-/// <c>[@Setting("width", "Board width")]</c>：把字段绑定到 snake.ini 里的一个键。
-/// 由 <c>@APPLY_SETTINGS(values, report)</c> 生成解析和赋值代码，由 <c>@SETTINGS_TEMPLATE(this)</c> 生成默认配置文件。
+/// <c>[@Setting("width", "Board width")]</c>: binds a field to a key in snake.ini.
+/// <c>@APPLY_SETTINGS(values, report)</c> generates the parsing and assignment code; <c>@SETTINGS_TEMPLATE(this)</c> generates the default settings file.
 /// </summary>
 [AttributeMacro(MacroTarget.Field | MacroTarget.Property)]
 public sealed class Setting : Attribute
@@ -26,8 +26,8 @@ public sealed class Setting : Attribute
 public static class SettingsMacros
 {
     /// <summary>
-    /// <c>@APPLY_SETTINGS(values, report);</c>：values 是键值对序列，report 是 Action&lt;string&gt;。
-    /// 按成员类型解析后赋值（经过 setter，所以 @CLAMP 的范围照样生效）；格式错误、越界、未知键都会报告。
+    /// <c>@APPLY_SETTINGS(values, report);</c> where values is a sequence of key/value pairs and report is an Action&lt;string&gt;.
+    /// Each value is parsed by the member's type and assigned through the setter (so @CLAMP ranges still apply); bad formats, out-of-range values and unknown keys are reported.
     /// </summary>
     [Macro(MacroSite.Statement)]
     public static void APPLY_SETTINGS(object values, object report)
@@ -49,7 +49,7 @@ public static class SettingsMacros
         Macro.Emit($"default: {r}(\"unknown setting '\" + __kv.Key.Trim() + \"'; known: \" + {Macro.Quote(string.Join(", ", settings.Select(s => s.Key)))}); break; }} }}");
     }
 
-    /// <summary><c>@SETTINGS_TEMPLATE(obj)</c>：用 obj 当前的值生成一份带说明的配置文件文本。</summary>
+    /// <summary><c>@SETTINGS_TEMPLATE(obj)</c>: generates a commented settings file from obj's current values.</summary>
     [Macro]
     public static string SETTINGS_TEMPLATE<T>(T obj)
     {

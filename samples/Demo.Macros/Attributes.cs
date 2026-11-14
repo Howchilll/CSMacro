@@ -1,11 +1,11 @@
 using System;
-using CSMacro;
+using HowMacro;
 
 namespace Demo.Macros
 {
     /// <summary>
-    /// 特性宏 <c>[@Save]</c> / <c>[@Save("key")]</c>：把字段登记到存档容器。
-    /// 产出的是启动代码，引擎汇总成辅助脚本，程序启动时自动执行。存档容器里一行手写的登记代码都不需要。
+    /// Attribute macro <c>[@Save]</c> / <c>[@Save("key")]</c>: registers the field with the save container.
+    /// It produces startup code, which the engine collects into a generated startup script that runs when the program starts. The save container needs no hand-written registration code.
     /// </summary>
     [AttributeMacro(MacroTarget.Field | MacroTarget.Property)]
     public sealed class Save : Attribute
@@ -21,8 +21,8 @@ namespace Demo.Macros
     }
 
     /// <summary>
-    /// 特性宏 <c>[@Track]</c>：把成员登记到 "track" 频道，由方法宏 <c>@DUMP_TRACKED</c> 汇总。
-    /// 片段自带成员名、所在类型等信息，所以这里不需要写代码。
+    /// Attribute macro <c>[@Track]</c>: registers the member on the "track" channel, collected by the method macro <c>@DUMP_TRACKED</c>.
+    /// Fragments carry the member name, containing type and so on, so no code is needed here.
     /// </summary>
     [AttributeMacro(MacroTarget.Field | MacroTarget.Property)]
     public sealed class Track : Attribute

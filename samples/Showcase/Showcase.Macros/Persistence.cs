@@ -1,13 +1,13 @@
 using System;
 using System.Linq;
 using System.Text;
-using CSMacro;
+using HowMacro;
 
 namespace Showcase.Macros
 {
     /// <summary>
-    /// 特性宏 <c>[@Persist]</c>：标记要存档的字段/属性。编译期检查类型是否支持、成员是否可写。
-    /// 片段汇总到 "persist" 频道，由 <see cref="Persistence.WRITE_PERSISTED"/> / <see cref="Persistence.READ_PERSISTED"/> 生成读写代码。
+    /// Attribute macro <c>[@Persist]</c>: marks a field/property to save. Checks at compile time that the type is supported and the member is writable.
+    /// Fragments go to the "persist" channel; <see cref="Persistence.WRITE_PERSISTED"/> / <see cref="Persistence.READ_PERSISTED"/> generate the read/write code.
     /// </summary>
     [AttributeMacro(MacroTarget.Field | MacroTarget.Property)]
     public sealed class Persist : Attribute
@@ -34,8 +34,8 @@ namespace Showcase.Macros
         internal const string Supported = "int, long, float, double, bool, string, enums";
 
         /// <summary>
-        /// 写出所在类型全部 <c>[@Persist]</c> 成员：<c>public void Save(BinaryWriter w) { @WRITE_PERSISTED(w); }</c>
-        /// 先写一个编译期算好的格式指纹，再按声明顺序强类型写出每个成员。没有反射。
+        /// Writes all <c>[@Persist]</c> members of the containing type: <c>public void Save(BinaryWriter w) { @WRITE_PERSISTED(w); }</c>
+        /// First writes a format fingerprint computed at compile time, then each member in declaration order, strongly typed. No reflection.
         /// </summary>
         [Macro(MacroSite.Statement)]
         public static void WRITE_PERSISTED(object writer)
@@ -48,8 +48,8 @@ namespace Showcase.Macros
         }
 
         /// <summary>
-        /// 读回全部 <c>[@Persist]</c> 成员：<c>public void Load(BinaryReader r) { @READ_PERSISTED(r); }</c>
-        /// 指纹不一致（存档后增删改过存档字段）时明确报错，而不是读出错位的数据。
+        /// Reads back all <c>[@Persist]</c> members: <c>public void Load(BinaryReader r) { @READ_PERSISTED(r); }</c>
+        /// A fingerprint mismatch (saved fields changed since the save) fails clearly instead of reading misaligned data.
         /// </summary>
         [Macro(MacroSite.Statement)]
         public static void READ_PERSISTED(object reader)
@@ -62,7 +62,7 @@ namespace Showcase.Macros
                 Macro.Emit($"this.{m.Name} = {Codec(m.TypeInfo, "")!.Value.Read.Replace("$r", r)};");
         }
 
-        /// <summary>(写出表达式, 读回表达式)；不支持的类型返回 null。$w / $r 是 writer / reader 的占位。</summary>
+        /// <summary>(write expression, read expression); null for unsupported types. $w / $r are placeholders for the writer / reader.</summary>
         internal static (string Write, string Read)? Codec(MacroType? type, string expr)
         {
             if (type == null) return null;
@@ -93,11 +93,11 @@ namespace Showcase.Macros
                 .Select(f => f.Declaration!)
                 .ToArray();
 
-        /// <summary>存档格式描述：成员名和类型，按声明顺序。</summary>
+        /// <summary>Save format description: member names and types in declaration order.</summary>
         private static string Schema() => string.Join(", ", Members().Select(m => $"{m.Name}:{m.Type}"));
 
         /// <summary>
-        /// 格式指纹。用 FNV-1a 而不是 string.GetHashCode：后者在 .NET 里每个进程随机化，不能用于持久化。
+        /// Format fingerprint. Uses FNV-1a rather than string.GetHashCode, which is randomized per process in .NET and can't be used for persistence.
         /// </summary>
         private static string Fingerprint()
         {

@@ -1,17 +1,17 @@
-using CSMacro.Testing;
+using HowMacro.Testing;
 using Xunit;
 
 namespace Demo.Macros.Tests;
 
 /// <summary>
-/// 字段被宏变成属性后，只对字段成立的用法（ref/out、ref 表达式、取地址、修改结构体副本）要在用法处报 CSM017。
+/// Once a macro turns a field into a property, field-only uses (ref/out, ref expressions, address-of, mutating a struct copy) must be reported as HMC017 at the use site.
 /// </summary>
 public class PropertyUseTests
 {
     private static MacroTestResult Expand(string source) =>
         MacroTest.Expand(source, new MacroTestOptions { References = { typeof(M).Assembly } });
 
-    // 占 5 行；拼上 """ 开头的下一段后，那一段的第一行就是第 6 行。
+    // 5 lines; when the next """ block is appended, its first line is line 6.
     private const string Header = """
         using System; using System.Threading;
         using Demo.Macros;
@@ -37,8 +37,8 @@ public class PropertyUseTests
             }
             """);
 
-        r.AssertError("CSM017", contains: "Gold is turned into a property by @LOGGED, so it can't be passed as `ref`", line: 12);
-        r.AssertError("CSM017", contains: "can't be passed as `ref`", line: 13);
+        r.AssertError("HMC017", contains: "Gold is turned into a property by @LOGGED, so it can't be passed as `ref`", line: 12);
+        r.AssertError("HMC017", contains: "can't be passed as `ref`", line: 13);
     }
 
     [Fact]
@@ -55,7 +55,7 @@ public class PropertyUseTests
             }
             """);
 
-        r.AssertError("CSM017", contains: "Hp is turned into a property by #region @LOG_ALL, so it can't be passed as `out`", line: 11);
+        r.AssertError("HMC017", contains: "Hp is turned into a property by #region @LOG_ALL, so it can't be passed as `out`", line: 11);
     }
 
     [Fact]
@@ -76,9 +76,9 @@ public class PropertyUseTests
             }
             """);
 
-        r.AssertError("CSM017", contains: "you can't take a `ref` to it", line: 12);
-        r.AssertError("CSM017", contains: "assigning to `Pos.X` would only change a copy", line: 13);
-        r.AssertError("CSM017", contains: "assigning to `Pos.X` would only change a copy", line: 14);
+        r.AssertError("HMC017", contains: "you can't take a `ref` to it", line: 12);
+        r.AssertError("HMC017", contains: "assigning to `Pos.X` would only change a copy", line: 13);
+        r.AssertError("HMC017", contains: "assigning to `Pos.X` would only change a copy", line: 14);
     }
 
     [Fact]
@@ -89,8 +89,8 @@ public class PropertyUseTests
             public class Player
             {
                 public int Gold = @LOGGED(100);
-                public int Plain = @SQUARE(3);   // 表达式宏：仍然是字段
-                public Vec Pos = new Vec();      // 普通字段
+                public int Plain = @SQUARE(3);   // expression macro: still a field
+                public Vec Pos = new Vec();      // plain field
                 static void Read(in int x) { }
                 static void Add(ref int x) => x++;
                 public void F()

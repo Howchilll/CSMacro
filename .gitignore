@@ -1,11 +1,11 @@
-# 构建产物
+# Build output
 bin/
 obj/
 
-# CSMacro dump 目录（排查用的展开副本）
-csmacro-dump/
+# HowMacro dump folders (expanded copies for debugging)
+howmacro-dump/
 
-# 测试结果
+# Test results
 TestResults/
 
 # IDE
@@ -16,11 +16,11 @@ TestResults/
 *.user
 *.suo
 
-# 系统
+# OS files
 .DS_Store
 
-# 示例游戏运行时生成的存档
+# Save files written by the example game at runtime
 *.sav
 
-# NuGet 包输出
+# NuGet package output
 artifacts/

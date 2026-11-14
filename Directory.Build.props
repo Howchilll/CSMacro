@@ -3,14 +3,18 @@
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
 
-    <!-- 发布的 NuGet 包版本（CSMacro、CSMacro.Testing） -->
-    <CSMacroVersion>0.1.1</CSMacroVersion>
+    <!-- Version of the published NuGet packages (HowMacro, HowMacro.Testing) -->
+    <!-- The publish workflow overrides this with the version from the git tag (v0.1.1-preview -> 0.1.1-preview) -->
+    <HowMacroVersion>0.1.1-preview</HowMacroVersion>
 
-    <!-- 默认不打包；只有 pack/CSMacro 和 src/CSMacro.Testing 打包 -->
+    <!-- Nothing is packable by default; only pack/HowMacro and src/HowMacro.Testing are packed -->
     <IsPackable>false</IsPackable>
     <PackageOutputPath>$(MSBuildThisFileDirectory)artifacts/packages</PackageOutputPath>
-    <Authors>CSMacro contributors</Authors>
+    <Authors>HowMacro contributors</Authors>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageTags>macro;metaprogramming;roslyn;msbuild;codegen</PackageTags>
+    <PackageProjectUrl>https://github.com/Howchilll/CSMacro</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/Howchilll/CSMacro</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
   </PropertyGroup>
 </Project>

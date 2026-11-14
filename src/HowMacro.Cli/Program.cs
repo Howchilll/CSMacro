@@ -2,27 +2,27 @@ using System.Reflection;
 using System.Runtime.Loader;
 using System.Security.Cryptography;
 using System.Text;
-using CSMacro;
-using CSMacro.Engine;
+using HowMacro;
+using HowMacro.Engine;
 
-// 用法：csmacro @args.rsp
-//   -s:<源文件>     参与编译的源文件（MSBuild Compile 项）
-//   -r:<程序集>     编译引用（MSBuild ReferencePath），宏程序集也从这里找
-//   -d:<A;B;C>      预处理符号
+// Usage: howmacro @args.rsp
+//   -s:<source>     a source file to compile (MSBuild Compile item)
+//   -r:<assembly>   a compile reference (MSBuild ReferencePath); macro assemblies are found here too
+//   -d:<A;B;C>      preprocessor symbols
 //   --langversion:<v>
 //   --nullable:<enable|disable|warnings|annotations>
 //   --output-type:<Exe|WinExe|Library>
-//   --out:<目录>        展开后的文件写到这里
-//   --originals:<文件>  清单：被替换掉的原 Compile 项
-//   --expanded:<文件>   清单：替换进来的展开文件（含引擎生成的辅助脚本）
-//   --runtime-unused:<文件>  清单：运行时已经不需要的宏程序集（MSBuild 据此从引用和输出中移除）
-//   --startup-attribute:<特性>  启动辅助脚本入口上的特性（默认 ModuleInitializer）
-//   --no-verify         不对宏生成的代码做编译检查
-//   --dump:<目录>          另外把展开结果写到这个目录（逐行对齐的源文件 + 辅助脚本 + _expansions.txt 报告），用来排查问题
-//   --dump-files:<a;b>     只写出这些文件（相对路径或文件名，支持 * 和 **）
-//   --dump-macros:<a;b>    dump 时只展开这些宏，其余保持原样（不影响真正参与编译的结果）
-//   -m:<文件>              项目内的宏定义文件（MSBuild CSMacroDefinition）：先单独编译，再从正式编译里拿掉
-//   --local-macros-out:<dll>  项目内宏编译成的临时程序集路径
+//   --out:<dir>         expanded files are written here
+//   --originals:<file>  manifest: original Compile items that were replaced
+//   --expanded:<file>   manifest: expanded files swapped in (including the generated startup script)
+//   --runtime-unused:<file>  manifest: macro assemblies no longer needed at runtime (MSBuild removes them from references and output)
+//   --startup-attribute:<attr>  attribute on the generated startup script's entry point (default: ModuleInitializer)
+//   --no-verify         skip compiling macro-generated code for checks
+//   --dump:<dir>           also write the expanded result here (line-aligned sources + startup script + _expansions.txt report) for debugging
+//   --dump-files:<a;b>     only write these files (relative paths or file names, * and ** supported)
+//   --dump-macros:<a;b>    only expand these macros in the dump, leave the rest as is (does not affect what is actually compiled)
+//   -m:<file>              an in-project macro definition file (MSBuild HowMacroDefinition): compiled first on its own, then removed from the real compilation
+//   --local-macros-out:<dll>  path of the temporary assembly the in-project macros are compiled into
 
 var sources = new List<string>();
 var references = new List<string>();
@@ -53,19 +53,19 @@ foreach (var arg in ExpandResponseFiles(args))
     else if (TryValue(arg, "--dump:", out v)) dumpDir = v.Length > 0 ? v : null;
     else if (TryValue(arg, "--dump-files:", out v)) dumpFiles = SplitList(v);
     else if (TryValue(arg, "--dump-macros:", out v)) dumpMacros = SplitList(v);
-    else if (arg.Length > 0) { Console.Error.WriteLine($"csmacro: unknown argument '{arg}'"); return 2; }
+    else if (arg.Length > 0) { Console.Error.WriteLine($"howmacro: unknown argument '{arg}'"); return 2; }
 }
 
 if (outDir == null || originalsFile == null || expandedFile == null)
 {
-    Console.Error.WriteLine("csmacro: --out, --originals and --expanded are required");
+    Console.Error.WriteLine("howmacro: --out, --originals and --expanded are required");
     return 2;
 }
 
-// 保险：dump 目录（有标记文件）里的副本绝不能再被当成源码，从编译里拿掉
+// Safety net: copies inside a dump folder (marked by a marker file) must never be treated as sources again; remove them from the compilation
 var dumpCopies = sources.Where(InsideDumpDirectory).ToList();
 
-// 项目内的宏定义文件：不参与展开，先单独编译成临时程序集（展开时从这里加载宏），再从正式编译里拿掉
+// In-project macro definition files: not expanded; compiled first into a temporary assembly (macros are loaded from it), then removed from the real compilation
 var definitionPaths = new HashSet<string>(macroDefinitions.Select(Path.GetFullPath));
 var definitionSources = sources.Where(s => definitionPaths.Contains(Path.GetFullPath(s))).ToList();
 
@@ -77,7 +77,7 @@ var inputs = sources
 
 if (macroDefinitions.Count > 0)
 {
-    if (localMacrosOut == null) { Console.Error.WriteLine("csmacro: -m requires --local-macros-out"); return 2; }
+    if (localMacrosOut == null) { Console.Error.WriteLine("howmacro: -m requires --local-macros-out"); return 2; }
     localMacrosOut = Path.GetFullPath(localMacrosOut);
     var definitions = macroDefinitions.Select(f => new SourceFile(f, Path.GetFullPath(f), File.ReadAllText(f))).ToList();
     var localDiagnostics = LocalMacros.Compile(definitions, MakeOptions(null), Path.GetFileNameWithoutExtension(localMacrosOut), localMacrosOut);
@@ -102,27 +102,27 @@ ExpandOptions MakeOptions(IReadOnlyCollection<string>? macros) => new ExpandOpti
 var result = MacroExpander.Expand(inputs, MakeOptions(null), invoker);
 foreach (var d in result.Diagnostics) Console.WriteLine(d);
 
-// dump 只是另外写一份给人看，不影响真正参与编译的展开结果；展开出错时也照样写，方便排查。
+// The dump is just an extra copy for humans and doesn't affect what is compiled; it is written even when expansion fails, to help debugging.
 if (dumpDir != null)
 {
     var dumpResult = dumpMacros is { Count: > 0 } ? MacroExpander.Expand(inputs, MakeOptions(dumpMacros), invoker) : result;
     try
     {
         var written = MacroDump.Write(dumpDir, inputs, dumpResult, dumpFiles, dumpMacros);
-        Console.WriteLine($"csmacro: dumped {written.Count} file(s) to {Path.GetFullPath(dumpDir)} (report: {MacroDump.ReportFileName})");
+        Console.WriteLine($"howmacro: dumped {written.Count} file(s) to {Path.GetFullPath(dumpDir)} (report: {MacroDump.ReportFileName})");
     }
     catch (IOException e)
     {
-        Console.WriteLine($"csmacro: warning CSM020: dump failed: {e.Message}");
+        Console.WriteLine($"howmacro: warning HMC020: dump failed: {e.Message}");
     }
 }
 
 if (result.HasErrors) return 1;
 
-// 宏定义文件只存在于编译期：展开后的代码不能再依赖它们（比如用了宏文件里的普通辅助类型）
+// Macro definition files exist only at compile time: expanded code must not depend on them (e.g. by using a plain helper type from a macro file)
 if (localMacrosOut != null && result.RuntimeAnalysisReliable && !result.RuntimeUnusedReferences.Any(p => Path.GetFullPath(p) == localMacrosOut))
 {
-    Console.WriteLine($"{Path.GetFullPath(macroDefinitions[0])}(1,1): error CSM019: code in this project still uses types from the macro definition files " +
+    Console.WriteLine($"{Path.GetFullPath(macroDefinitions[0])}(1,1): error HMC019: code in this project still uses types from the macro definition files " +
                       $"({string.Join(", ", macroDefinitions.Select(Path.GetFileName))}). Macro definition files exist only at compile time; " +
                       "move shared helpers into a regular source file, or into a separate macro library");
     return 1;
@@ -135,12 +135,12 @@ foreach (var file in result.Files)
 {
     var dest = Path.GetFullPath(Path.Combine(outDir, SafeRelativePath(file.Id)));
     Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
-    WriteIfChanged(dest, file.Text); // 内容不变就不碰时间戳，让 CoreCompile 的增量编译还能生效
+    WriteIfChanged(dest, file.Text); // keep the timestamp when content is unchanged so CoreCompile's incremental build still works
     originals.Add(file.Id);
     expanded.Add(dest);
 }
-originals.AddRange(dumpCopies);        // 只出现在 originals 清单里 = 从 @(Compile) 中移除
-originals.AddRange(definitionSources); // 宏定义文件同样从正式编译里拿掉
+originals.AddRange(dumpCopies);        // listed only in the originals manifest = removed from @(Compile)
+originals.AddRange(definitionSources); // macro definition files are removed from the real compilation too
 foreach (var file in result.GeneratedFiles)
 {
     var dest = Path.GetFullPath(Path.Combine(outDir, "generated", file.Name));
@@ -152,7 +152,7 @@ WriteIfChanged(originalsFile, string.Join('\n', originals));
 WriteIfChanged(expandedFile, string.Join('\n', expanded));
 if (runtimeUnusedFile != null) WriteIfChanged(runtimeUnusedFile, string.Join('\n', result.RuntimeUnusedReferences));
 
-Console.WriteLine($"csmacro: expanded macros in {result.Files.Count} of {inputs.Count} file(s)" +
+Console.WriteLine($"howmacro: expanded macros in {result.Files.Count} of {inputs.Count} file(s)" +
                   (result.GeneratedFiles.Count > 0 ? $", generated {string.Join(", ", result.GeneratedFiles.Select(f => f.Name))}" : "") +
                   (result.RuntimeUnusedReferences.Count > 0
                       ? $"; not needed at runtime: {string.Join(", ", result.RuntimeUnusedReferences.Select(Path.GetFileNameWithoutExtension))}"
@@ -167,7 +167,7 @@ static bool InsideDumpDirectory(string id)
     return false;
 }
 
-// 列表可以用 ; , 或空格分隔（命令行 -p: 里 ; 和 , 有特殊含义，用空格最方便："LOGGED Save"）
+// Lists may be separated by ; , or spaces (; and , are special in -p: on the command line, so spaces are easiest: "LOGGED Save")
 static List<string> SplitList(string value) =>
     value.Split(new[] { ';', ',', ' ' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
 
@@ -202,7 +202,7 @@ static void WriteIfChanged(string path, string text)
     File.WriteAllText(path, text);
 }
 
-/// <summary>在独立的加载上下文里加载宏程序集并反射调用宏方法。</summary>
+/// <summary>Loads macro assemblies in an isolated load context and invokes macro methods via reflection.</summary>
 sealed class ReflectionInvoker : IMacroInvoker
 {
     private readonly MacroLoadContext _alc;
@@ -221,14 +221,14 @@ sealed class ReflectionInvoker : IMacroInvoker
     }
 
     /// <summary>
-    /// 框架程序集和 CSMacro.Abstractions 交给默认上下文（共享同一个 Macro 静态上下文），
-    /// 其余依赖按名字从编译引用里找。
+    /// Framework assemblies and HowMacro.Abstractions are left to the default context (so the static Macro context is shared);
+    /// other dependencies are resolved by name from the compile references.
     /// </summary>
     private sealed class MacroLoadContext : AssemblyLoadContext
     {
         private readonly Dictionary<string, string> _byName = new(StringComparer.OrdinalIgnoreCase);
 
-        public MacroLoadContext(IEnumerable<string> referencePaths) : base("CSMacro", isCollectible: true)
+        public MacroLoadContext(IEnumerable<string> referencePaths) : base("HowMacro", isCollectible: true)
         {
             foreach (var p in referencePaths) _byName.TryAdd(Path.GetFileNameWithoutExtension(p), p);
             Resolving += (_, name) =>

@@ -1,17 +1,17 @@
-using CSMacro.Testing;
+using HowMacro.Testing;
 using Demo.Macros;
 using Xunit;
 
-// CaptureConsole 会临时替换 Console.Out，所以不并行跑。
+// CaptureConsole temporarily replaces Console.Out, so tests don't run in parallel.
 [assembly: CollectionBehavior(DisableTestParallelization = true)]
 
 namespace Demo.Macros.Tests;
 
 /// <summary>
-/// 演示怎么给宏写测试。三类测法：
-/// 1. 测展开结果：断言某一行展开成了什么（展开保持行号不变，所以源码第 N 行就是 r.Line(N)）。
-/// 2. 测诊断：断言宏在错误用法下报了哪个错误、在哪一行。
-/// 3. 测运行行为：r.Compile() 把展开结果编译加载，再实际调用生成的代码。
+/// Shows how to test macros. Three kinds of tests:
+/// 1. Expansion output: assert what a line expanded to (expansion keeps line numbers, so source line N is r.Line(N)).
+/// 2. Diagnostics: assert which error a macro reports for a misuse, and on which line.
+/// 3. Runtime behavior: r.Compile() compiles and loads the expanded code, then calls the generated code.
 /// </summary>
 public class DemoMacroTests
 {
@@ -22,7 +22,7 @@ public class DemoMacroTests
             Macros = onlyMacros.ToList(),
         });
 
-    // 测试源码不带隐式 using，需要的都写出来。占 5 行；拼上 """ 开头的下一段后，那一段的第一行就是第 6 行。
+    // Test sources have no implicit usings, so list what is needed. 5 lines; when the next """ block is appended, its first line is line 6.
     private const string Header = """
         using System; using System.Collections.Generic;
         using Demo.Macros;
@@ -67,7 +67,7 @@ public class DemoMacroTests
             public class Player { public int Max = @GETSET(Data.Max); }
             """);
 
-        r.AssertError("CSM100", contains: "read-only", line: 6);
+        r.AssertError("HMC100", contains: "read-only", line: 6);
     }
 
     // ------------------------------------------------------------------ LOGGED
@@ -84,13 +84,13 @@ public class DemoMacroTests
         var log = MacroTest.CaptureConsole(() =>
         {
             compiled.Set(player, "Gold", 150);
-            compiled.Set(player, "Gold", 150); // 值没变，不打 log
+            compiled.Set(player, "Gold", 150); // unchanged, no log
         });
 
         Assert.Equal("[Player.Gold] 100 -> 150" + Environment.NewLine, log);
     }
 
-    // ------------------------------------------------------------------ 特性宏
+    // ------------------------------------------------------------------ Attribute macros
 
     [Fact]
     public void Save_registers_fields_in_the_startup_script()
@@ -111,9 +111,9 @@ public class DemoMacroTests
             """).AssertSuccess();
 
         Assert.NotNull(r.Startup);
-        Assert.Equal("public int Gold = 1;", r.Line(13).Trim()); // [@Save] 从源码中删除，字段本身不变
+        Assert.Equal("public int Gold = 1;", r.Line(13).Trim()); // [@Save] is removed from the source; the field itself is unchanged
 
-        var compiled = r.Compile(); // 启动代码在加载时执行
+        var compiled = r.Compile(); // startup code runs on load
         Assert.Equal(new[] { "Gold", "lv" }, (List<string>)compiled.Get("Demo.App.SaveContainer", "Keys")!);
     }
 
@@ -135,7 +135,7 @@ public class DemoMacroTests
         Assert.Equal("Hp=1, Gold=3", compiled.Call(compiled.Create("Demo.App.Player"), "Dump"));
     }
 
-    // ------------------------------------------------------------------ 语义信息
+    // ------------------------------------------------------------------ Semantic information
 
     [Fact]
     public void DUMP_walks_members_using_semantic_info()
@@ -155,7 +155,7 @@ public class DemoMacroTests
         Assert.Equal("Player { Hp=7, Name=Ann }", compiled.Call(compiled.Create("Demo.App.Player"), "Dump"));
     }
 
-    // ------------------------------------------------------------------ 规则
+    // ------------------------------------------------------------------ Rules
 
     [Fact]
     public void Macros_cannot_contain_macros()
@@ -165,7 +165,7 @@ public class DemoMacroTests
             public class C { void F() { @LOG(@SQUARE(2)); } }
             """);
 
-        r.AssertError("CSM012", contains: "@SQUARE is inside the arguments of @LOG", line: 6);
+        r.AssertError("HMC012", contains: "@SQUARE is inside the arguments of @LOG", line: 6);
     }
 
     [Fact]
@@ -179,7 +179,7 @@ public class DemoMacroTests
         Assert.Contains("{ System.Console.WriteLine(\"[Test0.cs:6] x = \" +(x)); }", r.Line(6));
     }
 
-    // ------------------------------------------------------------------ 排查工具：筛选、记录、dump
+    // ------------------------------------------------------------------ Debugging tools: filtering, records, dump
 
     [Fact]
     public void Macro_filter_expands_only_the_selected_macros()
@@ -193,8 +193,8 @@ public class DemoMacroTests
             }
             """, "LOGGED").AssertSuccess();
 
-        Assert.Contains("@GETSET(Data.Hp)", r.Line(8));   // 没选中：保持原样
-        Assert.Contains("set {", r.Line(9));              // 选中：已展开
+        Assert.Contains("@GETSET(Data.Hp)", r.Line(8));   // not selected: left as is
+        Assert.Contains("set {", r.Line(9));              // selected: expanded
         Assert.Equal("@LOGGED", Assert.Single(r.Expansions).Macro);
     }
 
@@ -206,7 +206,7 @@ public class DemoMacroTests
             public class Player { public int Gold = @LOGGED(1); }
             """);
 
-        var dir = Path.Combine(Path.GetTempPath(), "csmacro-test-" + Guid.NewGuid().ToString("N"));
+        var dir = Path.Combine(Path.GetTempPath(), "howmacro-test-" + Guid.NewGuid().ToString("N"));
         try
         {
             var written = r.DumpTo(dir);
@@ -217,7 +217,7 @@ public class DemoMacroTests
 
             var report = File.ReadAllText(Path.Combine(dir, "_expansions.txt"));
             Assert.Contains("Test0.cs:6  @LOGGED  (Member)", report);
-            Assert.Contains("field = value;", report); // 格式化成多行的输出
+            Assert.Contains("field = value;", report); // output formatted over several lines
         }
         finally
         {

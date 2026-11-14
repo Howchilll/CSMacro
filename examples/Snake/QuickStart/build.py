@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""QuickStart：构建 Snake（首次会从本地包源还原 CSMacro 包）。
+"""QuickStart: build Snake (the first build restores the HowMacro package from the local feed).
 
-对应命令：dotnet build
+Equivalent command: dotnet build
 """
 import subprocess
 import sys
 from pathlib import Path
 
-# 示例项目根目录（QuickStart 的上一级），保证在任意位置运行结果一致
+# The example's root folder (QuickStart's parent), so the script works from any directory
 ROOT = Path(__file__).resolve().parent.parent
 
 

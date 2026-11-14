@@ -1,0 +1,53 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Packaging project: produces the NuGet package HowMacro. Consumers only need to reference this one package.
+        ref/netstandard2.0/HowMacro.Abstractions.dll(.xml)  API for writing macros. Compile-time reference only → never a runtime dependency of the app
+        build/HowMacro.targets                              imported automatically by NuGet: expands macros before compilation
+        tools/net10.0/                                     prebuilt expansion tool (HowMacro.Cli and its dependencies)
+    Pack: dotnet pack pack/HowMacro -c Release   → artifacts/packages/HowMacro.<version>.nupkg
+  -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <IsPackable>true</IsPackable>
+    <PackageId>HowMacro</PackageId>
+    <Version>$(HowMacroVersion)</Version>
+    <Description>Compile-time macros for C#. Macros are ordinary C# methods and attributes that the IDE understands; the build runs them and compiles the expanded code. No IDE plugin, no runtime dependency.</Description>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+
+    <!-- This project has no code of its own; it only assembles the package -->
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+    <!-- Compile-time only: dotnet add package adds PrivateAssets="all" automatically -->
+    <DevelopmentDependency>true</DevelopmentDependency>
+    <!-- NU5128/NU5131: the package intentionally has only ref/ (compile-time reference) and no lib/ (runtime); this is expected -->
+    <NoWarn>$(NoWarn);NU5100;NU5128;NU5131</NoWarn>
+    <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);HowMacroPackageFiles</TargetsForTfmSpecificContentInPackage>
+    <_HowMacroCliPublishDir>$(MSBuildProjectDirectory)/$(BaseIntermediateOutputPath)cli-publish/</_HowMacroCliPublishDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="../../build/HowMacro.targets" Pack="true" PackagePath="build/" />
+    <None Include="../../README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
+
+  <Target Name="HowMacroPackageFiles">
+    <!-- Expansion tool: framework-dependent publish (RollForward=Major, any .NET 10+ runtime works) -->
+    <RemoveDir Directories="$(_HowMacroCliPublishDir)" />
+    <!-- RemoveProperties: don't pass this project's global properties such as TargetFramework down -->
+    <MSBuild Projects="../../src/HowMacro.Cli/HowMacro.Cli.csproj" Targets="Publish" RemoveProperties="TargetFramework;RuntimeIdentifier"
+             Properties="Configuration=$(Configuration);PublishDir=$(_HowMacroCliPublishDir);SelfContained=false;UseAppHost=false;SatelliteResourceLanguages=en" />
+    <MSBuild Projects="../../src/HowMacro.Abstractions/HowMacro.Abstractions.csproj" Targets="Build" RemoveProperties="TargetFramework;RuntimeIdentifier"
+             Properties="Configuration=$(Configuration)">
+      <Output TaskParameter="TargetOutputs" ItemName="_HowMacroAbstractions" />
+    </MSBuild>
+
+    <ItemGroup>
+      <_HowMacroCliFiles Include="$(_HowMacroCliPublishDir)**/*" Exclude="$(_HowMacroCliPublishDir)**/*.pdb" />
+      <TfmSpecificPackageFile Include="@(_HowMacroCliFiles)" PackagePath="tools/net10.0/%(RecursiveDir)" />
+      <TfmSpecificPackageFile Include="@(_HowMacroAbstractions)" PackagePath="ref/netstandard2.0/" />
+      <TfmSpecificPackageFile Include="@(_HowMacroAbstractions->'%(RootDir)%(Directory)%(Filename).xml')" PackagePath="ref/netstandard2.0/" />
+    </ItemGroup>
+  </Target>
+
+</Project>

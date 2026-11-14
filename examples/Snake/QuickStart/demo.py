@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""QuickStart：机器人自动玩一局（种子固定，结果可复现）。
+"""QuickStart: a bot plays one game (fixed seed, reproducible).
 
-对应命令：dotnet run -- --demo
-可透传额外参数，例如：python demo.py --seed 42
+Equivalent command: dotnet run -- --demo
+Extra arguments are passed through, e.g. python demo.py --seed 42
 """
 import subprocess
 import sys

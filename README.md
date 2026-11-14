@@ -1,49 +1,55 @@
-# CSMacro
+# HowMacro
 
-给 C# 用的编译期宏。宏就是普通的 C# 代码：IDE 把它当作普通的方法调用或特性，可以补全、做类型检查、跳转到实现；
-编译前，宏的方法体会被执行并展开成代码，运行时只剩展开后的结果。
+Compile-time macros for C#. A macro is ordinary C# code: the IDE sees it as a normal method call or attribute, with completion,
+type checking and go-to-definition. Before compilation, the macro's body runs and expands into code; at runtime only the expanded result remains.
 
 ```csharp
 public class Player
 {
-    // IDE 看到的是字段；编译器拿到的是转发属性
+    // The IDE sees a field; the compiler gets a forwarding property
     public int Hp = @GETSET(DataCenter.PlayerData.Hp);
 
-    // 统一规则：值改变时自动打 log；[@Save] 让字段自动进入存档容器
+    // One shared rule: log every change; [@Save] registers the field with the save container automatically
     [@Save] public int Gold = @LOGGED(100);
     [@Save("lv")] public int Level = @LOGGED(1);
 }
 ```
 
-还可以用 `#region @LOG_ALL` … `#endregion` 包住一组成员统一处理，比如测试时给所有字段加自动 log。
+You can also wrap a group of members in `#region @LOG_ALL` … `#endregion` to process them together, for example to add change logging to every field while testing.
 
-**核心原则：不展开宏，项目在静态上也必须正确。** 名字和类型只能由源码声明，宏只改实现。
-所以 IDE 看到的永远是真相，不需要任何 IDE 插件。
+**Core principle: the unexpanded project must stay statically correct.** Names and types are declared only in source; macros change only the implementation.
+So what the IDE shows is always the truth, and no IDE plugin is needed.
 
-**想看它放进真实项目是什么样子，看 [examples/Snake](examples/Snake/README.md)**：
-一个终端贪吃蛇，游戏逻辑刻意保持简单，篇幅留给宏。它作为独立项目通过 NuGet 包接入 CSMacro，宏直接写在项目的 `Macros/` 里，
-说明文档从导入、配置一直写到运行，可以当作接入教程。游戏里 24 行用到宏，生成了 171 行代码：
-变更通知、数值约束、按键绑定、配置文件、存档、Debug 才有的断言、按需打开的状态跟踪。运行时程序里没有任何宏的痕迹。
+**To see it in a real project, look at [examples/Snake](https://github.com/Howchilll/CSMacro/blob/main/examples/Snake/README.md)**:
+a terminal Snake game whose game logic is deliberately simple so the macros get the spotlight. It is a standalone project that consumes HowMacro through the NuGet package, with its macros written directly in the project's `Macros/` folder.
+Its README walks from installation through configuration to running, so it doubles as an integration tutorial. 24 lines in the game use macros and they generate 171 lines of code:
+change notification, value clamping, key bindings, a settings file, save data, Debug-only assertions and on-demand state tracing. The program at runtime contains no trace of the macros.
 
-更小的例子见 [samples/Showcase](samples/Showcase/README.md)：一个 RPG 角色模块。
+For a smaller example, see [samples/Showcase](https://github.com/Howchilll/CSMacro/blob/main/samples/Showcase/README.md): an RPG character module.
 
-## 安装到你的项目
+## Add it to your project
 
-CSMacro 以 NuGet 包的形式使用。**引用包、加一行配置，就可以开始写自己的宏。**
+HowMacro is used as a NuGet package. **Reference the package, add one line of configuration, and you can start writing your own macros.**
 
-### 1. 引用包，指定宏写在哪
+### 1. Reference the package and say where macros live
+
+```bash
+dotnet add package HowMacro --prerelease
+```
+
+Then tell HowMacro which folder holds your macros. The project file ends up with:
 
 ```xml
 <ItemGroup>
-  <PackageReference Include="CSMacro" Version="0.1.1" PrivateAssets="all" />
-  <CSMacroDefinition Include="Macros/**/*.cs" />
+  <PackageReference Include="HowMacro" Version="0.1.1-preview" PrivateAssets="all" />
+  <HowMacroDefinition Include="Macros/**/*.cs" />
 </ItemGroup>
 ```
 
-### 2. 在 `Macros/` 里写宏
+### 2. Write a macro in `Macros/`
 
 ```csharp
-using CSMacro;
+using HowMacro;
 
 namespace MyApp.Macros;
 
@@ -55,87 +61,93 @@ public static class MyMacros
 }
 ```
 
-### 3. 在代码里用
+### 3. Use it in your code
 
 ```csharp
 using static MyApp.Macros.MyMacros;
 
 var x = 21;
-@SHOW(x * 2);   // 输出：x * 2 = 42
+@SHOW(x * 2);   // prints: x * 2 = 42
 ```
 
-就这些：
+That's it:
 
-- 不用改源码结构，不用 IDE 插件。
-- IDE 照常能补全宏、跳转到宏的实现。
-- 编译出的程序里没有任何 CSMacro 的痕迹：输出目录、`deps.json`、程序集引用里都没有。
+- No changes to your source structure, no IDE plugin.
+- The IDE still completes macros and jumps to their implementation.
+- The compiled program has no trace of HowMacro: not in the output folder, not in `deps.json`, not in assembly references.
 
-**宏多了、要在多个项目间共享时**，把它们挪到一个单独的宏库项目（netstandard2.0，同样引用 `CSMacro` 包），
-其他项目引用这个宏库并引用 `CSMacro` 包即可，不需要 `CSMacroDefinition`。
+**When you have many macros or want to share them across projects**, move them into a separate macro library project (netstandard2.0, also referencing the `HowMacro` package).
+Other projects reference that macro library plus the `HowMacro` package; no `HowMacroDefinition` needed.
 
-**给宏写单元测试**：测试项目引用 `CSMacro.Testing` 包，用法见 [DESIGN.md](DESIGN.md#给宏作者用的测试工具)。
+**Unit-testing macros**: reference the `HowMacro.Testing` package from your test project; see [DESIGN.md](https://github.com/Howchilll/CSMacro/blob/main/DESIGN.md#test-helpers-for-macro-authors).
 
-**要求**：构建机器上装有 .NET 10 及以上的 SDK（展开工具运行在 .NET 10 上）；项目是 SDK 风格的 MSBuild 项目。
-被展开的项目本身的目标框架不限。
+**Requirements**: the build machine needs the .NET 10 SDK or later (the expansion tool runs on .NET 10), and the project must be an SDK-style MSBuild project.
+The target framework of the project being expanded can be anything.
 
-**宏文件的约束**：`Macros/` 里的文件先于项目编译，所以只能用 CSMacro 的 API 和项目引用的库，不能用本项目自己的类型。
-违反时会报 CSM018；业务代码反过来用到宏文件里的普通类型时会报 CSM019。
+**Constraint on macro files**: files in `Macros/` are compiled before the rest of the project, so they can only use the HowMacro API and referenced libraries, not the project's own types.
+Violating this reports HMC018; the reverse, regular code using an ordinary type from a macro file, reports HMC019.
 
-### 从源码生成包
+### Where the packages come from
 
-还没有发布到 nuget.org 时，可以在本地生成：
+`HowMacro` and `HowMacro.Testing` are published to [nuget.org](https://www.nuget.org/packages/HowMacro), so the steps above work as is.
+They are also published to GitHub Packages (`https://nuget.pkg.github.com/Howchilll/index.json`); NuGet feeds on GitHub Packages
+always require authentication, even for public packages, so nuget.org is the easier choice.
+
+### Build the packages from source
+
+To try changes that aren't released yet, build the packages locally:
 
 ```bash
-dotnet pack pack/CSMacro -c Release
+dotnet pack pack/HowMacro -c Release
 ```
 
 ```bash
-dotnet pack src/CSMacro.Testing -c Release
+dotnet pack src/HowMacro.Testing -c Release
 ```
 
-包会生成在 `artifacts/packages/`。在你的项目旁边放一个 `nuget.config`，把这个目录加为包源：
+The packages are written to `artifacts/packages/`. Put a `nuget.config` next to your project that adds this folder as a package source:
 
 ```xml
 <configuration>
   <packageSources>
-    <add key="csmacro-local" value="/path/to/CSMacro/DotNet/artifacts/packages" />
+    <add key="howmacro-local" value="/path/to/CSMacro/artifacts/packages" />
   </packageSources>
 </configuration>
 ```
 
-## 在这个仓库里构建
+## Building this repository
 
-需要 .NET 10 SDK。`samples/` 和 `tests/` 直接引用源码（`build/CSMacro.targets` 会从源码构建展开工具），不需要先打包。
-`examples/` 下的案例是独立项目，通过 NuGet 包接入，需要先运行 `dotnet pack pack/CSMacro -c Release`。
+Requires the .NET 10 SDK. `samples/` and `tests/` reference the source directly (`build/HowMacro.targets` builds the expansion tool from source), so no packing is needed first.
+The case study under `examples/` is a standalone project that consumes the NuGet package, so run `dotnet pack pack/HowMacro -c Release` first.
 
 ```bash
-# 构建并运行示例
+# Build and run the sample
 dotnet build samples/Demo.App && dotnet samples/Demo.App/bin/Debug/net10.0/Demo.App.dll
 
-# 运行宏的单元测试
+# Run the macro unit tests
 dotnet test tests/Demo.Macros.Tests
 
-# 把展开结果写到 csmacro-dump/ 排查问题（可以只看部分文件、部分宏）
-dotnet build samples/Demo.App -p:CSMacroDumpFiles=Player.cs -p:CSMacroDumpMacros="LOGGED Save"
+# Write the expanded output to howmacro-dump/ for debugging (optionally only some files or some macros)
+dotnet build samples/Demo.App -p:HowMacroDumpFiles=Player.cs -p:HowMacroDumpMacros="LOGGED Save"
 ```
 
-## 目录
+## Layout
 
-| 路径 | 作用 |
+| Path | Purpose |
 |---|---|
-| `src/CSMacro.Abstractions` | 宏作者引用的 API：`[Macro]`、`[AttributeMacro]`、`Macro.*`、语义信息模型 |
-| `src/CSMacro.Engine` | 展开引擎（Roslyn） |
-| `src/CSMacro.Cli` | 构建时被 MSBuild 调用的展开工具 |
-| `src/CSMacro.Testing` | 给宏作者用的测试工具（NuGet 包 `CSMacro.Testing`） |
-| `pack/CSMacro` | 打包项目：生成 NuGet 包 `CSMacro` |
-| `build/CSMacro.targets` | MSBuild 接入 |
-| `examples/Snake` | 接入案例：终端贪吃蛇，独立项目，通过 NuGet 包接入，宏写在项目内（不在主解决方案里） |
-| `samples/Showcase` | 价值展示：RPG 角色模块 |
-| `samples/Demo.*` | 各项功能的基础示例 |
-| `tests/` | 示例宏的单元测试 |
+| `src/HowMacro.Abstractions` | The API macro authors reference: `[Macro]`, `[AttributeMacro]`, `Macro.*`, the semantic information model |
+| `src/HowMacro.Engine` | The expansion engine (Roslyn) |
+| `src/HowMacro.Cli` | The expansion tool MSBuild calls during the build |
+| `src/HowMacro.Testing` | Testing tools for macro authors (NuGet package `HowMacro.Testing`) |
+| `pack/HowMacro` | Packaging project: produces the `HowMacro` NuGet package |
+| `build/HowMacro.targets` | MSBuild integration |
+| `examples/Snake` | Integration case study: terminal Snake, a standalone project consuming the NuGet package, macros written in-project (not in the main solution) |
+| `samples/Showcase` | Value showcase: an RPG character module |
+| `samples/Demo.*` | Basic samples for each feature |
+| `tests/` | Unit tests for the sample macros |
 
-完整设计、规则、API 和诊断码见 [DESIGN.md](DESIGN.md)。
+The full design, rules, API and diagnostic codes are in [DESIGN.md](https://github.com/Howchilll/CSMacro/blob/main/DESIGN.md).
 
-## 状态
+## Status
 
-原型阶段：普通 .NET（控制台）已可用，Unity 接入在计划中。
+Prototype: plain .NET (console) works; Unity integration is planned.

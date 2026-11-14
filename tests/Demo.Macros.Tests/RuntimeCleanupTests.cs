@@ -1,9 +1,9 @@
-using CSMacro.Testing;
+using HowMacro.Testing;
 using Xunit;
 
 namespace Demo.Macros.Tests;
 
-/// <summary>运行时清理：展开后用不到的宏程序集要被报告出来，导入宏库的无用 using 要被清掉（行号不变）。</summary>
+/// <summary>Runtime cleanup: macro assemblies unused after expansion are reported, and unused usings that import macro libraries are blanked (line numbers kept).</summary>
 public class RuntimeCleanupTests
 {
     private static MacroTestResult Expand(string source) =>
@@ -21,8 +21,8 @@ public class RuntimeCleanupTests
             """).AssertSuccess();
 
         Assert.Contains("Demo.Macros", Names(r));
-        Assert.Contains("CSMacro.Abstractions", Names(r));
-        Assert.Equal("", r.Line(1));                          // using static 被清空，行号不变
+        Assert.Contains("HowMacro.Abstractions", Names(r));
+        Assert.Equal("", r.Line(1));                          // using static is blanked, line numbers kept
         Assert.StartsWith("public class Player { public int Gold { get;", r.Line(3));
     }
 
@@ -35,11 +35,11 @@ public class RuntimeCleanupTests
             public class Player
             {
                 public int Gold = @LOGGED(100);
-                public string Label() => CSMacro.Macro.Quote("not a macro, just a helper used at runtime");
+                public string Label() => HowMacro.Macro.Quote("not a macro, just a helper used at runtime");
             }
             """).AssertSuccess();
 
-        Assert.Contains("Demo.Macros", Names(r));                 // 只有宏，运行时用不到
-        Assert.DoesNotContain("CSMacro.Abstractions", Names(r));  // 运行时还在用 Macro.Quote，必须保留
+        Assert.Contains("Demo.Macros", Names(r));                 // only macros, not needed at runtime
+        Assert.DoesNotContain("HowMacro.Abstractions", Names(r));  // Macro.Quote is still used at runtime, so it must stay
     }
 }

@@ -1,12 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- 宏库：普通的类库，引用 CSMacro.Abstractions 即可。 -->
+  <!-- Macro library: an ordinary class library that references HowMacro.Abstractions. -->
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../../src/CSMacro.Abstractions/CSMacro.Abstractions.csproj" />
+    <ProjectReference Include="../../src/HowMacro.Abstractions/HowMacro.Abstractions.csproj" />
   </ItemGroup>
 
 </Project>

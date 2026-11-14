@@ -5,56 +5,56 @@ using static Demo.Macros.M;
 
 var p = new Player();
 
-// GETSET：写 Player.Hp 实际写的是 DataCenter.PlayerData.Hp
+// GETSET: writing Player.Hp actually writes DataCenter.PlayerData.Hp
 p.Hp -= 30;
 @LOG(DataCenter.PlayerData.Hp);
 @ASSERT(DataCenter.PlayerData.Hp == 70);
 
-// Mp 同样转发
+// Mp forwards the same way
 DataCenter.PlayerData.Mp = 7;
 @LOG(p.Mp);
 
-// LOGGED：统一的"改变即打 log"
+// LOGGED: one shared "log every change" rule
 p.Gold += 50;
 p.Level++;
 p.Title = "Hero";
-p.Title = "Hero"; // 值没变，不打 log
+p.Title = "Hero"; // unchanged, no log
 
-// 宏不能包含宏：要组合时先展开到局部变量
+// Macros can't contain macros: to combine them, expand into a local variable first
 var sq = @SQUARE(4);
 @LOG(sq);
 
-// [@Save]：启动时已自动登记（辅助脚本生成），存档容器里没有任何手写的登记代码
+// [@Save]: registered automatically at startup (generated startup script); the save container has no hand-written registration code
 var save = SaveContainer.Save(p);
 Console.WriteLine("save: " + string.Join(", ", save.Select(kv => $"{kv.Key}={kv.Value}")));
 p.Gold = 0;
 SaveContainer.Load(p, save);
 
-// [@Track] + @DUMP_TRACKED：方法宏汇总所有特性宏产出的片段
+// [@Track] + @DUMP_TRACKED: a method macro collects the fragments produced by an attribute macro
 Console.WriteLine("tracked: " + @DUMP_TRACKED(p));
 
-// @DUMP：宏用语义信息遍历 Player 的成员，编译期生成拼接代码（运行时不用反射）
+// @DUMP: the macro walks Player's members via semantic information and generates the concatenation at compile time (no runtime reflection)
 Console.WriteLine("dump: " + @DUMP(p));
 
-// 片段宏 #region @LOG_ALL：Enemy 里被包住的字段改变时都会自动打 log
+// Region macro #region @LOG_ALL: every wrapped field in Enemy logs its changes
 var enemy = new Enemy();
 enemy.Hp -= 20;
 enemy.State = "Chasing";
-enemy.Attack = 8; // 值没变，不打 log
+enemy.Attack = 8; // unchanged, no log
 
-// 编译期生成 switch
+// A switch generated at compile time
 for (var i = 0; i < 3; i++)
     Console.WriteLine(@NAME_OF_INDEX(i, "Red", "Green"));
 
-// 跨多行的宏调用：展开后压成一行，并补回换行
+// A macro call spanning several lines: folded onto one line after expansion, with the newlines added back
 @LOG(
     p.Hp +
     p.Mp);
 
-// 行号检查：@LINE() 是原文件行号，Here() 是编译器认为的行号，两者必须相等
+// Line check: @LINE() is the source line, Here() is the line the compiler sees; they must match
 Console.WriteLine($"line check: macro={@LINE()} compiler={Here()}");
 
-// 栈跟踪检查：异常里的文件和行号应指向原文件（Program.cs），而不是 obj 里的展开副本
+// Stack trace check: the file and line in the exception should point at the source (Program.cs), not the expanded copy in obj
 try
 {
     @ASSERT(p.Hp < 0);

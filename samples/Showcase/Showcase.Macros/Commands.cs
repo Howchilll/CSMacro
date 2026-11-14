@@ -1,18 +1,18 @@
 using System;
 using System.Globalization;
 using System.Linq;
-using CSMacro;
+using HowMacro;
 
 namespace Showcase.Macros
 {
     /// <summary>
-    /// 特性宏 <c>[@Command("heal", "Restore HP")]</c>：把一个静态方法注册成调试控制台命令。
+    /// Attribute macro <c>[@Command("heal", "Restore HP")]</c>: registers a static method as a debug console command.
     /// <list type="bullet">
-    /// <item>启动时自动注册（辅助脚本），不用维护命令表。</item>
-    /// <item>按参数类型生成解析代码（int / float / bool / string / enum……），可选参数用默认值，返回值会打印出来。</item>
-    /// <item>编译期检查：必须是静态方法、参数类型必须能解析；命令名重复由 @COMMAND_HELP 报错。</item>
+    /// <item>Registered automatically at startup (generated startup script); no command table to maintain.</item>
+    /// <item>Generates parsing code per parameter type (int / float / bool / string / enum…); optional parameters use their defaults; return values are printed.</item>
+    /// <item>Compile-time checks: the method must be static and its parameter types parseable; duplicate command names are reported by @COMMAND_HELP.</item>
     /// </list>
-    /// 没有反射：IL2CPP / AOT 裁剪也不会把命令弄丢。
+    /// No reflection: IL2CPP / AOT trimming can't drop the commands.
     /// </summary>
     [AttributeMacro(MacroTarget.Method)]
     public sealed class Command : Attribute
@@ -59,7 +59,7 @@ namespace Showcase.Macros
             Macro.Fragment("commands", string.Join(Separator.ToString(), command, usage, description));
         }
 
-        /// <summary>用法里显示的类型：枚举直接列出可选值（来自语义信息），其余用 C# 关键字。</summary>
+        /// <summary>The type shown in usage: enums list their values (from semantic information), others use the C# keyword.</summary>
         private static string Label(MacroType type) =>
             type.Kind == MacroTypeKind.Enum ? string.Join("|", type.EnumValues).ToLowerInvariant() : type.FullName;
 
@@ -96,8 +96,8 @@ namespace Showcase.Macros
     public static class Commands
     {
         /// <summary>
-        /// 编译期生成的帮助表：<c>public static string Help => @COMMAND_HELP();</c>
-        /// 汇总全部 [@Command]，按命令名排序；命令名重复时编译期报错，指出两处定义的位置。
+        /// Help table generated at compile time: <c>public static string Help => @COMMAND_HELP();</c>
+        /// Collects all [@Command]s sorted by name; duplicate command names are compile-time errors that point at both definitions.
         /// </summary>
         [Macro]
         public static string COMMAND_HELP()

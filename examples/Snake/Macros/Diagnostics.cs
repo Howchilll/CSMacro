@@ -1,4 +1,4 @@
-using CSMacro;
+using HowMacro;
 
 namespace Snake.Macros;
 
@@ -6,8 +6,8 @@ public static class Diagnostics
 {
     /// <summary>
     /// <c>@ASSERT(condition, "message");</c>
-    /// 只在定义了 DEBUG 的构建里生成检查代码；Release 里展开成空语句，连条件都不求值。
-    /// 失败消息自带原始表达式和源码位置。
+    /// Generates the check only when DEBUG is defined; in Release it expands to an empty statement and the condition is not even evaluated.
+    /// The failure message includes the original expression and source location.
     /// </summary>
     [Macro(MacroSite.Statement)]
     public static void ASSERT(bool condition, string message = "")
@@ -19,8 +19,8 @@ public static class Diagnostics
     }
 
     /// <summary>
-    /// 片段宏 <c>#region @TRACE_STATE</c>：构建时定义了 TRACE_STATE（<c>dotnet build -p:TraceState=true</c>）才生效，
-    /// 把片段里的字段变成"改变时写一条跟踪日志"的属性；否则什么都不改，零开销。
+    /// Region macro <c>#region @TRACE_STATE</c>: active only when TRACE_STATE is defined (<c>dotnet build -p:TraceState=true</c>);
+    /// it turns the fields in the region into properties that log every change. Otherwise it changes nothing: zero cost.
     /// </summary>
     [RegionMacro]
     public static void TRACE_STATE()

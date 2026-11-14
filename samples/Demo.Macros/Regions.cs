@@ -1,21 +1,21 @@
 using System.Text.RegularExpressions;
-using CSMacro;
+using HowMacro;
 
 namespace Demo.Macros
 {
-    /// <summary>片段宏示例：处理 #region @NAME … #endregion 之间的成员。</summary>
+    /// <summary>Region macro samples: process the members between #region @NAME … #endregion.</summary>
     public static class Regions
     {
         /// <summary>
-        /// 逐成员替换：把片段里的每个可写字段都变成"改变时自动打 log"的属性。
-        /// 测试时用它包住一组字段就行，测完删掉 #region 那两行即可恢复原样。
+        /// Per-member replacement: turns every writable field in the region into a property that logs its changes.
+        /// Wrap a group of fields with it while testing; delete the two #region lines afterwards to restore them.
         /// <code>
         /// #region @LOG_ALL
         /// public int Hp = 50;
         /// public string State = "Idle";
         /// #endregion
         /// </code>
-        /// 跳过：readonly / const 字段、已经被其他宏展开的字段（比如 @GETSET）、属性和方法。
+        /// Skips readonly / const fields, fields already expanded by another macro (such as @GETSET), properties and methods.
         /// </summary>
         [RegionMacro]
         public static void LOG_ALL()
@@ -35,9 +35,9 @@ namespace Demo.Macros
         }
 
         /// <summary>
-        /// 整段文本替换：把片段里的 private 全部换成 public（比如临时让测试代码访问内部状态）。
-        /// 演示 Macro.RegionText + Macro.Emit 的纯文本匹配替换：逐行替换，行数不变。
-        /// 名字和类型没变，所以通过核心原则检查。
+        /// Whole-text replacement: changes every private in the region to public (e.g. to let test code reach internal state temporarily).
+        /// Shows plain text matching and replacement with Macro.RegionText + Macro.Emit: line by line, same number of lines.
+        /// Names and types are unchanged, so it passes the core principle checks.
         /// </summary>
         [RegionMacro]
         public static void PUBLIC_ALL()

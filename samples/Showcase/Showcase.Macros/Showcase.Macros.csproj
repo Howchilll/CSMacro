@@ -5,7 +5,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../../../src/CSMacro.Abstractions/CSMacro.Abstractions.csproj" />
+    <ProjectReference Include="../../../src/HowMacro.Abstractions/HowMacro.Abstractions.csproj" />
   </ItemGroup>
 
 </Project>

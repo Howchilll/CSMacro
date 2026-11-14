@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Test helpers for macro authors: expand source right in the test process and assert on the output and diagnostics, or compile and run it to test behavior.
+    Works with any test framework; failed assertions throw MacroTestException.
+    Published as the NuGet package HowMacro.Testing, with the engine and API assemblies bundled in.
+  -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+
+    <IsPackable>true</IsPackable>
+    <PackageId>HowMacro.Testing</PackageId>
+    <Version>$(HowMacroVersion)</Version>
+    <Description>Test helpers for HowMacro macro authors: expand source in a unit test, assert on output and diagnostics, or compile and run the expanded code. Works with any test framework.</Description>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);HowMacroIncludeReferencedProjects</TargetsForTfmSpecificBuildOutput>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The engine isn't published on its own: it's bundled into this package (PrivateAssets avoids a dependency on a package that doesn't exist) -->
+    <ProjectReference Include="../HowMacro.Engine/HowMacro.Engine.csproj" PrivateAssets="all" />
+    <!-- Roslyn, which the engine depends on, becomes a NuGet dependency of this package -->
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.0.0" />
+    <None Include="../../README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
+
+  <Target Name="HowMacroIncludeReferencedProjects" DependsOnTargets="BuildOnlySettings;ResolveReferences">
+    <ItemGroup>
+      <BuildOutputInPackage Include="@(ReferenceCopyLocalPaths->WithMetadataValue('ReferenceSourceTarget', 'ProjectReference'))"
+                            Condition="'%(Extension)' == '.dll' or '%(Extension)' == '.xml'" />
+    </ItemGroup>
+  </Target>
+
+</Project>

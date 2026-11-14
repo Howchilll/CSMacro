@@ -1,11 +1,11 @@
 <Project>
   <!--
-    这个案例是独立项目：这个文件让 MSBuild 不再往上找 CSMacro 仓库自己的 Directory.Build.props，
-    所以它的构建设置和普通外部项目完全一样。
+    This example is a standalone project: this file stops MSBuild from picking up the HowMacro repository's own Directory.Build.props,
+    so it builds exactly like any external project.
   -->
   <PropertyGroup>
-    <!-- 引用的 CSMacro 包版本 -->
-    <CSMacroVersion>0.1.1</CSMacroVersion>
+    <!-- Version of the HowMacro package to reference -->
+    <HowMacroVersion>0.1.1-preview</HowMacroVersion>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
   </PropertyGroup>

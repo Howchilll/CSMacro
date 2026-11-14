@@ -1,24 +1,24 @@
 {
-  // 隐藏开发者不需要关注的东西：构建产物、缓存、系统文件。
-  // csmacro-dump/ 故意不隐藏：排查展开问题时要看它。
+  // Hide things developers don't need to look at: build output, caches, OS files.
+  // howmacro-dump/ is intentionally visible: you need it when debugging expansions.
   "files.exclude": {
     "**/bin": true,
     "**/obj": true,
     "**/TestResults": true,
-    "**/.csmacro-dump": true,
+    "**/.howmacro-dump": true,
     "**/.DS_Store": true,
     "**/.git": true
   },
-  // 搜索时也跳过这些，另外跳过 dump 目录（里面是展开后的副本，会让搜索结果重复）
+  // Skip these in search too, plus dump folders (expanded copies would duplicate search results)
   "search.exclude": {
     "**/bin": true,
     "**/obj": true,
     "**/TestResults": true,
-    "**/csmacro-dump": true
+    "**/howmacro-dump": true
   },
   "files.watcherExclude": {
     "**/bin/**": true,
     "**/obj/**": true
   },
-  "dotnet.defaultSolution": "CSMacro.slnx"
+  "dotnet.defaultSolution": "HowMacro.slnx"
 }

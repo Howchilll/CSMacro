@@ -2,26 +2,26 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
-using CSMacro;
+using HowMacro;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
 
-namespace CSMacro.Engine
+namespace HowMacro.Engine
 {
     /// <summary>
-    /// 片段宏：<c>#region @NAME</c> … <c>#endregion</c>，处理片段里的成员。
+    /// Region macros: <c>#region @NAME</c> … <c>#endregion</c> process the members inside the region.
     /// <list type="bullet">
-    /// <item>识别：#region 后面的文字以 @ 开头。它对 IDE 只是注释，所以按名字在被引用的程序集里找带 [RegionMacro] 的静态方法。</item>
-    /// <item>范围：目前只支持类型内部（包裹成员）。</item>
-    /// <item>两种处理方式：逐成员替换（行号精确、逐个检查核心原则），或整段文本替换（输出行数不能超过原文）。</item>
-    /// <item>与方法宏同一阶段执行（在全部特性宏之后）。片段宏不能嵌套，也不能替换已经含有宏的成员（宏不能包含宏）。</item>
+    /// <item>Detection: the text after #region starts with @. To the IDE it is just a comment, so the macro is looked up by name: a static method marked [RegionMacro] in a referenced assembly.</item>
+    /// <item>Scope: only inside type bodies (wrapping members) for now.</item>
+    /// <item>Two modes: per-member replacement (exact line numbers, each member checked against the core principle) or whole-text replacement (the output can't have more lines than the original).</item>
+    /// <item>Runs in the same phase as method macros (after all attribute macros). Region macros can't be nested and can't replace members that already contain macros (macros can't contain macros).</item>
     /// </list>
     /// </summary>
     public static partial class MacroExpander
     {
-        private const string RegionMacroAttributeName = "CSMacro.RegionMacroAttribute";
+        private const string RegionMacroAttributeName = "HowMacro.RegionMacroAttribute";
         private static readonly Regex RegionMacroPattern = new Regex(@"^@([A-Za-z_][A-Za-z0-9_]*)\s*(\(.*\))?\s*$");
 
         private sealed class RegionUse
@@ -42,7 +42,7 @@ namespace CSMacro.Engine
             public RegionDirectiveTriviaSyntax Start { get; }
             public EndRegionDirectiveTriviaSyntax End { get; }
 
-            /// <summary>#region 后面的文字（PreprocessingMessage trivia）。</summary>
+            /// <summary>The text after #region (PreprocessingMessage trivia).</summary>
             public SyntaxTrivia Message { get; }
 
             public string Name { get; }
@@ -50,11 +50,11 @@ namespace CSMacro.Engine
             public TypeDeclarationSyntax Type { get; }
             public List<MemberDeclarationSyntax> Members { get; }
 
-            /// <summary>#region 那一行之后、#endregion 那一行之前的全部文本。</summary>
+            /// <summary>All text after the #region line and before the #endregion line.</summary>
             public TextSpan Content { get; }
         }
 
-        // ================================================================== 发现
+        // ================================================================== Discovery
 
         private static string RegionMessage(RegionDirectiveTriviaSyntax region) =>
             region.EndOfDirectiveToken.LeadingTrivia.FirstOrDefault(t => t.IsKind(SyntaxKind.PreprocessingMessageTrivia)).ToString().Trim();
@@ -65,7 +65,7 @@ namespace CSMacro.Engine
                 .OfType<RegionDirectiveTriviaSyntax>()
                 .Where(r => RegionMessage(r).StartsWith("@", StringComparison.Ordinal));
 
-        /// <summary>只做语法层面的发现和校验（位置、配对、嵌套）。</summary>
+        /// <summary>Syntax-level discovery and validation only (placement, pairing, nesting).</summary>
         private static List<RegionUse> FindRegionMacros(SyntaxTree tree, List<MacroDiagnostic> diagnostics, out bool failed)
         {
             failed = false;
@@ -86,27 +86,27 @@ namespace CSMacro.Engine
                 var match = RegionMacroPattern.Match(message);
                 if (!match.Success)
                 {
-                    failed |= !Fail("CSM015", $"can't read region macro '{message}'; write it as `#region @NAME` or `#region @NAME(args)`");
+                    failed |= !Fail("HMC015", $"can't read region macro '{message}'; write it as `#region @NAME` or `#region @NAME(args)`");
                     continue;
                 }
                 var name = match.Groups[1].Value;
                 var args = match.Groups[2].Success ? SyntaxFactory.ParseArgumentList(match.Groups[2].Value) : null;
                 if (args != null && FirstError(args) is string argError)
                 {
-                    failed |= !Fail("CSM015", $"can't parse the arguments of #region @{name}: {argError}");
+                    failed |= !Fail("HMC015", $"can't parse the arguments of #region @{name}: {argError}");
                     continue;
                 }
 
                 if (!(start.GetRelatedDirectives().OfType<EndRegionDirectiveTriviaSyntax>().FirstOrDefault() is { } end))
                 {
-                    failed |= !Fail("CSM015", $"#region @{name} has no matching #endregion");
+                    failed |= !Fail("HMC015", $"#region @{name} has no matching #endregion");
                     continue;
                 }
 
                 var type = TypeBodyOf(start.ParentTrivia.Token);
                 if (type == null || TypeBodyOf(end.ParentTrivia.Token) != type)
                 {
-                    failed |= !Fail("CSM003", $"#region @{name} must start and end directly inside the same class/struct body " +
+                    failed |= !Fail("HMC003", $"#region @{name} must start and end directly inside the same class/struct body " +
                                               "(region macros in method bodies or at namespace level are not supported yet)");
                     continue;
                 }
@@ -118,12 +118,12 @@ namespace CSMacro.Engine
                     TextSpan.FromBounds(contentStart, Math.Max(contentStart, contentEnd))));
             }
 
-            // 片段宏不能嵌套（宏不能包含宏）
+            // Region macros can't be nested (macros can't contain macros)
             foreach (var inner in result)
             {
                 var outer = result.FirstOrDefault(o => o != inner && o.Content.Contains(inner.Start.Span));
                 if (outer == null) continue;
-                diagnostics.Add(Diag(DiagnosticLevel.Error, "CSM012",
+                diagnostics.Add(Diag(DiagnosticLevel.Error, "HMC012",
                     $"macros can't contain macros: #region @{inner.Name} is inside #region @{outer.Name}", tree, inner.Start));
                 failed = true;
             }
@@ -131,8 +131,8 @@ namespace CSMacro.Engine
         }
 
         /// <summary>
-        /// 指令 trivia 挂在某个 token 上。如果那个 token 是类型里某个成员的第一个 token，或者是类型的右花括号，
-        /// 指令就位于这个类型的成员之间，返回该类型；否则（方法体内、命名空间层级）返回 null。
+        /// A directive's trivia is attached to a token. If that token is the first token of a member of a type, or the type's closing brace,
+        /// the directive sits between that type's members and the type is returned; otherwise (inside a method body, at namespace level) null.
         /// </summary>
         private static TypeDeclarationSyntax? TypeBodyOf(SyntaxToken token)
         {
@@ -143,7 +143,7 @@ namespace CSMacro.Engine
             return node is MemberDeclarationSyntax && node.Parent is TypeDeclarationSyntax type ? type : null;
         }
 
-        /// <summary>按名字在被引用的程序集里找片段宏（只看引用了 CSMacro.Abstractions 的程序集）。</summary>
+        /// <summary>Looks up region macros by name in the referenced assemblies (only assemblies that reference HowMacro.Abstractions).</summary>
         private static Dictionary<string, List<IMethodSymbol>> RegionMacroIndex(CSharpCompilation compilation)
         {
             var index = new Dictionary<string, List<IMethodSymbol>>(StringComparer.Ordinal);
@@ -165,13 +165,13 @@ namespace CSMacro.Engine
             foreach (var reference in compilation.References)
             {
                 if (compilation.GetAssemblyOrModuleSymbol(reference) is IAssemblySymbol assembly &&
-                    assembly.Modules.Any(m => m.ReferencedAssemblySymbols.Any(r => r.Name == "CSMacro.Abstractions")))
+                    assembly.Modules.Any(m => m.ReferencedAssemblySymbols.Any(r => r.Name == "HowMacro.Abstractions")))
                     Walk(assembly.GlobalNamespace);
             }
             return index;
         }
 
-        // ================================================================== 展开
+        // ================================================================== Expansion
 
         private static bool ExpandRegion(
             RegionUse use,
@@ -204,31 +204,31 @@ namespace CSMacro.Engine
                 return false;
             }
 
-            // ---- 找到宏方法 ----
+            // ---- find the macro method ----
             if (!index.TryGetValue(use.Name, out var candidates) || candidates.Count == 0)
-                return Fail("CSM015", $"no region macro named '{use.Name}' was found in the referenced assemblies " +
+                return Fail("HMC015", $"no region macro named '{use.Name}' was found in the referenced assemblies " +
                                       "(a region macro is a static method marked [RegionMacro] in a macro library)");
             if (candidates.Count > 1)
-                return Fail("CSM015", $"region macro name '{use.Name}' is ambiguous: " +
+                return Fail("HMC015", $"region macro name '{use.Name}' is ambiguous: " +
                                       string.Join(", ", candidates.Select(c => c.ContainingType.ToDisplayString() + "." + c.Name)));
 
             var def = candidates[0];
             var reference = ResolveMacroAssembly(def.ContainingType, compilation);
             if (reference == null)
-                return Fail("CSM004", $"{display} is declared in the same project that uses it; macros must live in a referenced assembly");
+                return Fail("HMC004", $"{display} is declared in the same project that uses it; macros must live in a referenced assembly");
 
-            // ---- 片段里的成员 ----
+            // ---- members inside the region ----
             var members = new List<MacroRegionMember>();
             var syntaxOf = new Dictionary<MacroRegionMember, MemberDeclarationSyntax>();
             foreach (var m in use.Members)
             {
                 var region = DescribeRegionMember(m, model, semantics, macroAttributes, calls);
-                if (region == null) continue; // 嵌套类型等不在 RegionMembers 里（整段文本模式仍能看到）
+                if (region == null) continue; // nested types etc. are not in RegionMembers (whole-text mode still sees them)
                 members.Add(region);
                 syntaxOf[region] = m;
             }
 
-            // ---- 执行 ----
+            // ---- run ----
             var pos = tree.GetLineSpan(use.Start.Span).StartLinePosition;
             var context = new MacroContext
             {
@@ -253,15 +253,15 @@ namespace CSMacro.Engine
             var ok = true;
 
             if (replaced.Count > 0 && output.Trim().Length > 0)
-                return Fail("CSM016", $"{display} used both member replacement (Replace) and whole-text output (Emit); use one of them");
+                return Fail("HMC016", $"{display} used both member replacement (Replace) and whole-text output (Emit); use one of them");
 
             if (output.Trim().Length > 0)
             {
-                // ---- 整段文本替换 ----
+                // ---- whole-text replacement ----
                 var inside = calls.Select(c => (SyntaxNode)c.Node).Concat(attributeUses.Select(a => a.Node))
                     .FirstOrDefault(node => use.Content.Contains(node.Span));
                 if (inside != null)
-                    return Fail("CSM012", $"macros can't contain macros: {display} replaces the region text as a whole, " +
+                    return Fail("HMC012", $"macros can't contain macros: {display} replaces the region text as a whole, " +
                                           "but the region contains another macro; use member replacement and skip that member instead", inside);
 
                 var original = text.ToString(use.Content);
@@ -269,7 +269,7 @@ namespace CSMacro.Engine
                 var originalNewlines = original.Count(c => c == '\n');
                 var outputNewlines = newText.Count(c => c == '\n');
                 if (outputNewlines + 1 > originalNewlines)
-                    return Fail("CSM007", $"{display} emitted {outputNewlines + 1} line(s) but the region has {originalNewlines}; " +
+                    return Fail("HMC007", $"{display} emitted {outputNewlines + 1} line(s) but the region has {originalNewlines}; " +
                                           "region text output can't add lines, or every line after it would shift");
 
                 var padded = newText + new string('\n', originalNewlines - outputNewlines);
@@ -283,12 +283,12 @@ namespace CSMacro.Engine
             }
             else
             {
-                // ---- 逐成员替换 ----
+                // ---- per-member replacement ----
                 foreach (var r in replaced)
                 {
                     var syntax = syntaxOf[r];
                     var oneLine = ToSingleLine(r.Replacement!, parseOptions, out var compressError);
-                    if (oneLine == null) { ok = Fail("CSM007", $"{display} → {r.Name}: {compressError}", syntax); continue; }
+                    if (oneLine == null) { ok = Fail("HMC007", $"{display} → {r.Name}: {compressError}", syntax); continue; }
 
                     var memberError = CheckMember(oneLine, r.Name, r.Type, parseOptions);
                     if (memberError != null) { ok = Fail(memberError.Value.Code, $"{display} → {r.Name}: {memberError.Value.Message} -- emitted: {oneLine}", syntax); continue; }
@@ -304,7 +304,7 @@ namespace CSMacro.Engine
                 }
             }
 
-            // #region @NAME → #region [expanded] @NAME：保留可读性，同时不再被识别为宏
+            // #region @NAME → #region [expanded] @NAME: stays readable and is no longer detected as a macro
             changes.Add(new TextChange(use.Message.Span, "[expanded] " + use.Message.ToString().Trim()));
             return ok;
         }
@@ -369,7 +369,7 @@ namespace CSMacro.Engine
                     return null;
             }
 
-            // 宏不能包含宏：成员里已经有宏调用时不能再替换它
+            // Macros can't contain macros: a member that already contains a macro call can't be replaced
             var inside = calls.FirstOrDefault(c => m.Span.Contains(c.Node.Span));
             string? expandedBy = null;
             if (inside != null)
@@ -387,14 +387,14 @@ namespace CSMacro.Engine
         }
 
         /// <summary>
-        /// 整段文本替换后的核心原则检查：字段和属性的名字、类型不变，所有成员的名字集合不变。
+        /// Core principle check after whole-text replacement: names and types of fields and properties are unchanged, and the set of member names is unchanged.
         /// </summary>
         private static (string Code, string Message)? CheckRegionText(string original, string replaced, CSharpParseOptions options)
         {
-            var after = SyntaxFactory.ParseCompilationUnit("class __CSMacroCheck {\n" + replaced + "\n}", options: options);
+            var after = SyntaxFactory.ParseCompilationUnit("class __HowMacroCheck {\n" + replaced + "\n}", options: options);
             if (FirstError(after) is string parseError)
-                return ("CSM011", $"the replaced region text is not valid member declarations: {parseError}");
-            var before = SyntaxFactory.ParseCompilationUnit("class __CSMacroCheck {\n" + original + "\n}", options: options);
+                return ("HMC011", $"the replaced region text is not valid member declarations: {parseError}");
+            var before = SyntaxFactory.ParseCompilationUnit("class __HowMacroCheck {\n" + original + "\n}", options: options);
 
             static List<(string Name, string? Type)> Declared(CompilationUnitSyntax unit) =>
                 unit.Members.OfType<ClassDeclarationSyntax>().Single().Members.SelectMany(m => m switch
@@ -414,14 +414,14 @@ namespace CSMacro.Engine
             var removed = a.Select(x => x.Name).Except(b.Select(x => x.Name)).ToList();
             var added = b.Select(x => x.Name).Except(a.Select(x => x.Name)).ToList();
             if (removed.Count > 0 || added.Count > 0)
-                return ("CSM008", "region text output may not introduce or remove names" +
+                return ("HMC008", "region text output may not introduce or remove names" +
                                   (removed.Count > 0 ? $"; removed: {string.Join(", ", removed)}" : "") +
                                   (added.Count > 0 ? $"; added: {string.Join(", ", added)}" : ""));
 
             var retyped = a.Zip(b, (x, y) => (x.Name, Before: x.Type, After: y.Type))
                 .FirstOrDefault(t => t.Before != null && t.After != null && t.Before != t.After);
             if (retyped.Name != null)
-                return ("CSM009", $"region text output changed the type of '{retyped.Name}' from {retyped.Before} to {retyped.After}");
+                return ("HMC009", $"region text output changed the type of '{retyped.Name}' from {retyped.Before} to {retyped.After}");
             return null;
         }
 
