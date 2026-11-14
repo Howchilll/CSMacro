@@ -21,3 +21,17 @@ Notes:
 - Generated code must be C# 9 (Unity's language version).
 - `Macro.Startup` code runs at `RuntimeInitializeLoadType.SubsystemRegistration`, before any user code.
 - Expansion log: `<UnityProject>/Library/HowMacro/ilpp.log`.
+
+## Demo
+
+[`Demo/`](Demo/) is a small scene that shows the macros in a Unity project:
+
+- `[@Command("Spawn cube")]` on a static method → a button in the debug console (registered by generated startup code)
+- `[@Watch]` on a field or property → a live row in the watch overlay, listed by `@WATCH_PANEL()`
+- `@ASSERT(...)` → a check in the editor and development builds, nothing in release builds
+- `@LOG_VALUE(x)` → logs `x = <value>` with the expression's source text
+
+To run it, set up HowMacro as above, copy `Demo/` to `<UnityProject>/Assets/Demo/`, then use the menu
+**HowMacro → Create Demo Scene** and press Play. The macros are in [`Demo/Macros/DemoMacros.cs`](Demo/Macros/DemoMacros.cs),
+the scene's code in [`Demo/Game/DemoController.cs`](Demo/Game/DemoController.cs).
+`Demo/Editor/SpikeRunner.cs` holds headless checks (`-executeMethod SpikeRunner.Run` / `SpikeRunner.BuildPlayer`).

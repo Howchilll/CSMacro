@@ -1,0 +1,6 @@
+{
+    "name": "Demo.Game",
+    "rootNamespace": "Demo.Game",
+    "references": ["Demo.Macros"],
+    "autoReferenced": true
+}
