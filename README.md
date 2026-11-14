@@ -140,6 +140,8 @@ dotnet build samples/Demo.App -p:HowMacroDumpFiles=Player.cs -p:HowMacroDumpMacr
 | `src/HowMacro.Engine` | The expansion engine (Roslyn) |
 | `src/HowMacro.Cli` | The expansion tool MSBuild calls during the build |
 | `src/HowMacro.Testing` | Testing tools for macro authors (NuGet package `HowMacro.Testing`) |
+| `src/HowMacro.Unity.Bridge` | Unity integration: expands and recompiles inside Unity's ILPostProcessor runner |
+| `unity/` | Unity-side ILPostProcessor and setup notes ([unity/README.md](https://github.com/Howchilll/CSMacro/blob/main/unity/README.md)) |
 | `pack/HowMacro` | Packaging project: produces the `HowMacro` NuGet package |
 | `build/HowMacro.targets` | MSBuild integration |
 | `examples/Snake` | Integration case study: terminal Snake, a standalone project consuming the NuGet package, macros written in-project (not in the main solution) |
@@ -151,4 +153,5 @@ The full design, rules, API and diagnostic codes are in [DESIGN.md](https://gith
 
 ## Status
 
-Prototype: plain .NET (console) works; Unity integration is planned.
+Prototype: plain .NET works (console, ASP.NET Core). Unity 2022.3+ works experimentally through an ILPostProcessor
+(editor and player builds); there is no UPM package yet, see [unity/README.md](https://github.com/Howchilll/CSMacro/blob/main/unity/README.md).

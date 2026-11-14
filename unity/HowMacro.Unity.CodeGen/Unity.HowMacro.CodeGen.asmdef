@@ -1,0 +1,9 @@
+{
+    "name": "Unity.HowMacro.CodeGen",
+    "rootNamespace": "HowMacro.Unity.CodeGen",
+    "references": [],
+    "includePlatforms": ["Editor"],
+    "overrideReferences": true,
+    "precompiledReferences": [],
+    "autoReferenced": false
+}

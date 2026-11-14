@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Runs inside Unity's ILPostProcessor runner (a self-contained .NET 6 process, Unity 2022.3+).
+    The Unity-side ILPostProcessor loads this assembly, Roslyn and the engine into their own AssemblyLoadContext,
+    so the runner's own System.Collections.Immutable 6.0 doesn't clash with the 9.0 Roslyn needs.
+    `dotnet publish` gives the whole folder to ship.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <CheckEolTargetFramework>false</CheckEolTargetFramework>
+    <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../HowMacro.Engine/HowMacro.Engine.csproj" />
+  </ItemGroup>
+
+</Project>

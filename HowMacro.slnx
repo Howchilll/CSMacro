@@ -12,6 +12,7 @@
     <Project Path="src/HowMacro.Cli/HowMacro.Cli.csproj" />
     <Project Path="src/HowMacro.Engine/HowMacro.Engine.csproj" />
     <Project Path="src/HowMacro.Testing/HowMacro.Testing.csproj" />
+    <Project Path="src/HowMacro.Unity.Bridge/HowMacro.Unity.Bridge.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Demo.Macros.Tests/Demo.Macros.Tests.csproj" />
