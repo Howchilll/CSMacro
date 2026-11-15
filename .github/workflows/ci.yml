@@ -33,6 +33,10 @@ jobs:
           dotnet build examples/Snake
           dotnet examples/Snake/bin/Debug/net10.0/Snake.dll --demo
 
+      # The Unity package can't be tested here (no Unity), but it must assemble
+      - name: Assemble the Unity package
+        run: python3 unity/pack_upm.py
+
       - uses: actions/upload-artifact@v4
         with:
           name: packages

@@ -1,0 +1,6 @@
+{
+    "name": "Arena.Game",
+    "rootNamespace": "Arena.Game",
+    "references": ["Arena.Macros"],
+    "autoReferenced": true
+}

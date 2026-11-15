@@ -19,7 +19,7 @@ namespace HowMacro.Unity.CodeGen
     /// </summary>
     sealed class HowMacroPostProcessor : ILPostProcessor
     {
-        const string BridgeFolder = "Assets/HowMacro/Bridge~";
+        const string PackageName = "com.howmacro.unity";
         static MethodInfo s_process;
         static string s_loadError;
 
@@ -27,6 +27,7 @@ namespace HowMacro.Unity.CodeGen
 
         public override bool WillProcess(ICompiledAssembly compiledAssembly) =>
             !compiledAssembly.Name.EndsWith(".CodeGen", StringComparison.Ordinal) &&
+            compiledAssembly.Name != "HowMacro.Unity.Editor" &&
             compiledAssembly.References.Any(r => Path.GetFileNameWithoutExtension(r) == "HowMacro.Abstractions");
 
         public override ILPostProcessResult Process(ICompiledAssembly compiledAssembly)
@@ -36,10 +37,10 @@ namespace HowMacro.Unity.CodeGen
             var original = compiledAssembly.InMemoryAssembly;
             try
             {
-                var process = LoadBridge(Path.Combine(projectDir, BridgeFolder));
+                var process = LoadBridge(projectDir);
                 if (process == null)
                 {
-                    messages.Add(Error(null, 0, 0, "HowMacro: couldn't load the bridge from " + BridgeFolder + ": " + s_loadError));
+                    messages.Add(Error(null, 0, 0, "HowMacro: couldn't load the bridge: " + s_loadError));
                     return new ILPostProcessResult(original, messages);
                 }
 
@@ -81,25 +82,80 @@ namespace HowMacro.Unity.CodeGen
         static DiagnosticMessage Error(string file, int line, int column, string message) =>
             new DiagnosticMessage { DiagnosticType = DiagnosticType.Error, File = file ?? "", Line = line, Column = column, MessageData = message };
 
+        static readonly object s_logLock = new object();
+
+        /// <summary>
+        /// Appends to Library/HowMacro/ilpp.log. Unity post-processes assemblies in parallel (threads, and sometimes several
+        /// runner processes), so writes are serialized here and retried briefly when another process holds the file.
+        /// </summary>
         static void Log(string line)
         {
-            try
+            var text = DateTime.Now.ToString("HH:mm:ss ") + line + Environment.NewLine;
+            lock (s_logLock)
             {
-                Directory.CreateDirectory("Library/HowMacro");
-                File.AppendAllText("Library/HowMacro/ilpp.log", DateTime.Now.ToString("HH:mm:ss ") + line + Environment.NewLine);
+                for (var attempt = 0; attempt < 20; attempt++)
+                {
+                    try
+                    {
+                        Directory.CreateDirectory("Library/HowMacro");
+                        File.AppendAllText("Library/HowMacro/ilpp.log", text);
+                        return;
+                    }
+                    catch (IOException) { System.Threading.Thread.Sleep(25); }
+                }
             }
-            catch (IOException) { }
         }
 
-        /// <summary>Loads every assembly of the bridge folder into one new AssemblyLoadContext, once per runner process.</summary>
-        static MethodInfo LoadBridge(string folder)
+        /// <summary>
+        /// Where the bridge is, in order: an embedded package, a git/registry package in the package cache, a local
+        /// <c>file:</c> package named in Packages/manifest.json, or a manual install under Assets/HowMacro.
+        /// </summary>
+        static string FindBridge(string projectDir)
+        {
+            var embedded = Path.Combine(projectDir, "Packages", PackageName, "Bridge~");
+            if (Directory.Exists(embedded)) return embedded;
+
+            var cache = Path.Combine(projectDir, "Library", "PackageCache");
+            if (Directory.Exists(cache))
+            {
+                var cached = Directory.GetDirectories(cache, PackageName + "@*")
+                    .Select(d => Path.Combine(d, "Bridge~")).Where(Directory.Exists)
+                    .OrderByDescending(Directory.GetLastWriteTimeUtc).FirstOrDefault();
+                if (cached != null) return cached;
+            }
+
+            var manifest = Path.Combine(projectDir, "Packages", "manifest.json");
+            if (File.Exists(manifest))
+            {
+                var m = System.Text.RegularExpressions.Regex.Match(File.ReadAllText(manifest),
+                    "\"" + System.Text.RegularExpressions.Regex.Escape(PackageName) + "\"\\s*:\\s*\"file:([^\"]+)\"");
+                if (m.Success)
+                {
+                    var local = Path.Combine(Path.GetFullPath(Path.Combine(projectDir, "Packages", m.Groups[1].Value.Replace("\\\\", "\\"))), "Bridge~");
+                    if (Directory.Exists(local)) return local;
+                }
+            }
+
+            var manual = Path.Combine(projectDir, "Assets", "HowMacro", "Bridge~");
+            if (Directory.Exists(manual)) return manual;
+            throw new DirectoryNotFoundException("no Bridge~ folder found for " + PackageName +
+                                                 " (looked in Packages/, Library/PackageCache/, file: packages in Packages/manifest.json and Assets/HowMacro/)");
+        }
+
+        /// <summary>
+        /// Loads every assembly of the bridge folder into one new AssemblyLoadContext, once per runner process.
+        /// Loaded from bytes, not from the path, so the files stay unlocked: on Windows a locked DLL would stop the
+        /// package manager from replacing the package and make rebuilding the bridge fail while Unity is open.
+        /// </summary>
+        static MethodInfo LoadBridge(string projectDir)
         {
             if (s_process != null || s_loadError != null) return s_process;
             try
             {
+                var folder = FindBridge(projectDir);
                 var alcType = Type.GetType("System.Runtime.Loader.AssemblyLoadContext, System.Runtime.Loader", throwOnError: true);
                 var alc = Activator.CreateInstance(alcType, "HowMacro", false);
-                var loadFromPath = alcType.GetMethod("LoadFromAssemblyPath", new[] { typeof(string) });
+                var loadFromStream = alcType.GetMethod("LoadFromStream", new[] { typeof(Stream), typeof(Stream) });
                 var framework = FrameworkVersions();
 
                 Assembly bridge = null;
@@ -108,11 +164,16 @@ namespace HowMacro.Unity.CodeGen
                     var name = AssemblyName.GetAssemblyName(dll);
                     // The runtime already has an equal or newer copy (e.g. System.Runtime.CompilerServices.Unsafe): use that
                     if (framework.TryGetValue(name.Name, out var v) && v >= name.Version) continue;
-                    var asm = (Assembly)loadFromPath.Invoke(alc, new object[] { dll });
+                    var pdb = Path.ChangeExtension(dll, ".pdb");
+                    var asm = (Assembly)loadFromStream.Invoke(alc, new object[]
+                    {
+                        new MemoryStream(File.ReadAllBytes(dll)),
+                        File.Exists(pdb) ? new MemoryStream(File.ReadAllBytes(pdb)) : null,
+                    });
                     if (name.Name == "HowMacro.Unity.Bridge") bridge = asm;
                 }
                 if (bridge == null) throw new FileNotFoundException("HowMacro.Unity.Bridge.dll not found in " + folder);
-                Log("bridge loaded from " + folder + " (runtime " + Environment.Version + ")");
+                Log("bridge " + BridgeStamp.Value + " loaded from " + folder + " (runtime " + Environment.Version + ")");
                 return s_process = bridge.GetType("HowMacro.Unity.Bridge", throwOnError: true).GetMethod("Process");
             }
             catch (Exception e)

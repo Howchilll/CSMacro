@@ -1,0 +1,9 @@
+{
+    "name": "HowMacro.Unity.Editor",
+    "rootNamespace": "HowMacro.Unity.Editor",
+    "references": [],
+    "includePlatforms": ["Editor"],
+    "overrideReferences": true,
+    "precompiledReferences": ["HowMacro.Abstractions.dll"],
+    "autoReferenced": false
+}

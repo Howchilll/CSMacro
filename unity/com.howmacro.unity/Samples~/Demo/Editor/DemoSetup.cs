@@ -1,3 +1,4 @@
+using System.Linq;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -5,7 +6,16 @@ using UnityEngine;
 /// <summary>Builds the HowMacro demo scene from code (menu: HowMacro / Create Demo Scene, or -executeMethod DemoSetup.CreateScene).</summary>
 public static class DemoSetup
 {
-    public const string ScenePath = "Assets/Demo/HowMacroDemo.unity";
+    /// <summary>The scene is saved next to the sample (an imported sample lives under Assets/Samples/...).</summary>
+    public static string ScenePath
+    {
+        get
+        {
+            var script = AssetDatabase.FindAssets("DemoSetup t:MonoScript").Select(AssetDatabase.GUIDToAssetPath)
+                .First(p => System.IO.Path.GetFileName(p) == "DemoSetup.cs");
+            return System.IO.Path.GetDirectoryName(System.IO.Path.GetDirectoryName(script)).Replace('\\', '/') + "/HowMacroDemo.unity";
+        }
+    }
 
     [MenuItem("HowMacro/Create Demo Scene")]
     public static void CreateScene()

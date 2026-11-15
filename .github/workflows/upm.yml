@@ -1,0 +1,58 @@
+name: UPM
+
+# Push a tag like v0.1.3-preview to publish the Unity package com.howmacro.unity to the `upm` branch
+# (one commit per release, tagged upm/v0.1.3-preview). Unity users install it with a git URL:
+#   https://github.com/Howchilll/CSMacro.git#upm                  latest release
+#   https://github.com/Howchilll/CSMacro.git#upm/v0.1.3-preview   a fixed version
+# main holds only the package sources; unity/pack_upm.py adds the bridge and the macro API DLL.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Package version, e.g. 0.1.3-preview'
+        required: true
+
+permissions:
+  contents: write   # push the upm branch and its tag
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Version
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          if [ -z "$VERSION" ]; then VERSION="${GITHUB_REF_NAME#v}"; fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Assemble the package
+        run: python3 unity/pack_upm.py --out "$RUNNER_TEMP/upm" --version "$VERSION"
+
+      - name: Commit to the upm branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git ls-remote --exit-code --heads origin upm > /dev/null; then
+            git worktree add -B upm "$RUNNER_TEMP/branch" origin/upm
+          else
+            git worktree add --detach "$RUNNER_TEMP/branch"
+            git -C "$RUNNER_TEMP/branch" checkout --orphan upm
+          fi
+          cd "$RUNNER_TEMP/branch"
+          git rm -rq --ignore-unmatch .
+          cp -r "$RUNNER_TEMP/upm/." .
+          git add -A
+          git commit -m "com.howmacro.unity $VERSION (from ${GITHUB_SHA::7})"
+          git tag "upm/v$VERSION"
+          git push origin upm "upm/v$VERSION"
