@@ -8,7 +8,7 @@ design); the post processor then expands the macros and recompiles that assembly
 | ILPostProcessor shell | [`HowMacro.Unity.CodeGen/`](HowMacro.Unity.CodeGen/) — goes into the Unity project | Unity's ILPP runner (.NET 6) |
 | Bridge: reads sources and options from the PDB, expands, recompiles | [`../src/HowMacro.Unity.Bridge`](../src/HowMacro.Unity.Bridge) | its own AssemblyLoadContext inside the runner |
 
-Setting up a Unity project by hand (until there is a UPM package):
+Setting up a Unity project by hand (until there is a UPM package). Testing on Windows: see [`WINDOWS-TEST.md`](WINDOWS-TEST.md).
 
 1. `dotnet publish src/HowMacro.Unity.Bridge -c Release -o <UnityProject>/Assets/HowMacro/Bridge~`
    (the `~` keeps Unity from importing it)
