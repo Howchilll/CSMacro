@@ -1,0 +1,6 @@
+{
+    "name": "Arena.Editor",
+    "references": ["Arena.Game"],
+    "includePlatforms": ["Editor"],
+    "autoReferenced": false
+}

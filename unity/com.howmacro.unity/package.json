@@ -1,0 +1,26 @@
+{
+  "name": "com.howmacro.unity",
+  "displayName": "HowMacro for Unity",
+  "version": "0.0.0-dev",
+  "unity": "2022.3",
+  "description": "Compile-time macros for C# in Unity. A macro is ordinary C#: the IDE sees a normal method call or attribute; at compile time an ILPostProcessor expands it, and only the expanded code reaches the player.",
+  "keywords": ["macro", "metaprogramming", "codegen", "roslyn", "ilpostprocessor"],
+  "license": "MIT",
+  "documentationUrl": "https://github.com/Howchilll/CSMacro/blob/main/unity/README.md",
+  "author": {
+    "name": "HowMacro contributors",
+    "url": "https://github.com/Howchilll/CSMacro"
+  },
+  "samples": [
+    {
+      "displayName": "Demo",
+      "description": "[@Command] debug buttons registered by generated startup code, a [@Watch] overlay, @ASSERT compiled out of release builds. Menu: HowMacro > Create Demo Scene.",
+      "path": "Samples~/Demo"
+    },
+    {
+      "displayName": "Arena",
+      "description": "@CLAMPED properties over serialized fields, PlayerPrefs saving with [@Save], tag and layer names checked at compile time. Needs the tag Enemy and the layers Ground and Enemy (see its README). Menu: HowMacro > Create Arena Scene.",
+      "path": "Samples~/Arena"
+    }
+  ]
+}
