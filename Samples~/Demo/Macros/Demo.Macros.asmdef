@@ -1,0 +1,7 @@
+{
+    "name": "Demo.Macros",
+    "rootNamespace": "Demo.Macros",
+    "references": [],
+    "autoReferenced": true,
+    "noEngineReferences": true
+}

@@ -1,0 +1,6 @@
+{
+    "name": "Demo.Editor",
+    "references": ["Demo.Game"],
+    "includePlatforms": ["Editor"],
+    "autoReferenced": false
+}

@@ -1,0 +1,7 @@
+{
+    "name": "Arena.Macros",
+    "rootNamespace": "Arena.Macros",
+    "references": [],
+    "autoReferenced": true,
+    "noEngineReferences": true
+}
