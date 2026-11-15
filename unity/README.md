@@ -59,3 +59,21 @@ python unity/pack_upm.py
 This writes `artifacts/upm/com.howmacro.unity`. Use it from a test project with
 `"com.howmacro.unity": "file:<path>"` in `Packages/manifest.json`. Pushing a `v*` tag runs [`upm.yml`](../.github/workflows/upm.yml),
 which publishes the assembled package to the `upm` branch.
+
+The `upm` branch is just the assembled package at the repository root, one commit per release, so it can also be made by hand:
+
+```bash
+python unity/pack_upm.py --out ../upm-out --version 0.1.3-preview
+git worktree add --detach ../upm-branch
+cd ../upm-branch
+git checkout --orphan upm        # first time only; later: git checkout upm
+git rm -rqf .
+cp -r ../upm-out/. .
+git add -A
+git commit -m "com.howmacro.unity 0.1.3-preview"
+git tag upm/v0.1.3-preview
+git push origin upm upm/v0.1.3-preview
+```
+
+Before pushing, a test project can install the local branch through git, exactly like the GitHub URL
+(spaces in the path as `%20`): `"com.howmacro.unity": "git+file:///D:/path/to/CSMacro#upm"`.

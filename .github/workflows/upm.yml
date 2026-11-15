@@ -50,7 +50,7 @@ jobs:
             git -C "$RUNNER_TEMP/branch" checkout --orphan upm
           fi
           cd "$RUNNER_TEMP/branch"
-          git rm -rq --ignore-unmatch .
+          git rm -rqf --ignore-unmatch .   # -f: after --orphan every file is staged, and plain rm refuses
           cp -r "$RUNNER_TEMP/upm/." .
           git add -A
           git commit -m "com.howmacro.unity $VERSION (from ${GITHUB_SHA::7})"
