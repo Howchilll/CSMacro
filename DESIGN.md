@@ -258,7 +258,7 @@ The version lives in `HowMacroVersion` in `Directory.Build.props`.
 **In-project macros**: good for getting started and small projects.
 
 ```xml
-<PackageReference Include="HowMacro" Version="0.1.3-preview" PrivateAssets="all" />
+<PackageReference Include="HowMacro" Version="0.1.4-preview" PrivateAssets="all" />
 <HowMacroDefinition Include="Macros/**/*.cs" />
 ```
 
@@ -275,10 +275,10 @@ The version lives in `HowMacroVersion` in `Directory.Build.props`.
 <!-- MyMacros.csproj -->
 <TargetFramework>netstandard2.0</TargetFramework>
 <LangVersion>latest</LangVersion>
-<PackageReference Include="HowMacro" Version="0.1.3-preview" PrivateAssets="all" />
+<PackageReference Include="HowMacro" Version="0.1.4-preview" PrivateAssets="all" />
 
 <!-- the project that uses the macros -->
-<PackageReference Include="HowMacro" Version="0.1.3-preview" PrivateAssets="all" />
+<PackageReference Include="HowMacro" Version="0.1.4-preview" PrivateAssets="all" />
 <ProjectReference Include="../MyMacros/MyMacros.csproj" />
 ```
 

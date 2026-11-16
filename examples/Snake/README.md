@@ -43,7 +43,7 @@ Add two lines to [Snake.csproj](Snake.csproj):
 
 ```xml
 <ItemGroup>
-  <PackageReference Include="HowMacro" Version="0.1.3-preview" PrivateAssets="all" />
+  <PackageReference Include="HowMacro" Version="0.1.4-preview" PrivateAssets="all" />
   <HowMacroDefinition Include="Macros/**/*.cs" />
 </ItemGroup>
 ```

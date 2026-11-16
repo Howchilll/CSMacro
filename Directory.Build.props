@@ -5,7 +5,7 @@
 
     <!-- Version of the published NuGet packages (HowMacro, HowMacro.Testing) -->
     <!-- The publish workflow overrides this with the version from the git tag (v0.1.2-preview -> 0.1.2-preview) -->
-    <HowMacroVersion>0.1.3-preview</HowMacroVersion>
+    <HowMacroVersion>0.1.4-preview</HowMacroVersion>
 
     <!-- Nothing is packable by default; only pack/HowMacro and src/HowMacro.Testing are packed -->
     <IsPackable>false</IsPackable>
