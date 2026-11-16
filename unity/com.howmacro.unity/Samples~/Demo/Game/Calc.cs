@@ -35,7 +35,7 @@ namespace Demo.Game
         {
             var nine = @SQUARE(3);
             @LOG_VALUE(nine);
-            throw new InvalidOperationException("boom"); // line 37: the stack trace should point here
+            throw new InvalidOperationException("boom"); // line 38: the stack trace should point here
         }
     }
 
@@ -46,9 +46,9 @@ namespace Demo.Game
             var lines = new List<string>
             {
                 "Area(4) = " + Calc.Area(4) + " (expanded: 25, unexpanded: 0)",
-                "Where() = \"" + Calc.Where() + "\" (expanded: Calc.cs:21)",
-                "AllCommands() = [" + string.Join(", ", Calc.AllCommands()) + "] (expanded: crash, hello)",
-                "registered commands = " + CommandConsole.Count + " (startup code ran: 2)",
+                "Where() = \"" + Calc.Where() + "\" (expanded: Calc.cs:22)",
+                "AllCommands() = [" + string.Join(", ", Calc.AllCommands()) + "] (expanded: Clear, crash, hello, Rain x20, Spawn cube, Spawn sphere)",
+                "registered commands = " + CommandConsole.Count + " (startup code ran: 6; 0 under -executeMethod, which runs outside Play mode)",
             };
             Calc.Report(21);
             try { Calc.Crash(); }
