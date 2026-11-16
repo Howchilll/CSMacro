@@ -6,9 +6,10 @@
   "compilationOptions": {},
   "targets": {
     ".NETCoreApp,Version=v6.0": {
-      "HowMacro.Unity.Bridge/0.1.3-preview": {
+      "HowMacro.Unity.Bridge/0.1.4-preview": {
         "dependencies": {
-          "HowMacro.Engine": "0.1.3-preview"
+          "HowMacro.Engine": "0.1.4-preview",
+          "Mono.Cecil": "0.11.6"
         },
         "runtime": {
           "HowMacro.Unity.Bridge.dll": {}
@@ -42,6 +43,30 @@
             "assemblyVersion": "5.0.0.0",
             "fileVersion": "5.0.25.56712",
             "localPath": "Microsoft.CodeAnalysis.CSharp.dll"
+          }
+        }
+      },
+      "Mono.Cecil/0.11.6": {
+        "runtime": {
+          "lib/netstandard2.0/Mono.Cecil.Mdb.dll": {
+            "assemblyVersion": "0.11.6.0",
+            "fileVersion": "0.11.6.0",
+            "localPath": "Mono.Cecil.Mdb.dll"
+          },
+          "lib/netstandard2.0/Mono.Cecil.Pdb.dll": {
+            "assemblyVersion": "0.11.6.0",
+            "fileVersion": "0.11.6.0",
+            "localPath": "Mono.Cecil.Pdb.dll"
+          },
+          "lib/netstandard2.0/Mono.Cecil.Rocks.dll": {
+            "assemblyVersion": "0.11.6.0",
+            "fileVersion": "0.11.6.0",
+            "localPath": "Mono.Cecil.Rocks.dll"
+          },
+          "lib/netstandard2.0/Mono.Cecil.dll": {
+            "assemblyVersion": "0.11.6.0",
+            "fileVersion": "0.11.6.0",
+            "localPath": "Mono.Cecil.dll"
           }
         }
       },
@@ -99,30 +124,30 @@
           }
         }
       },
-      "HowMacro.Abstractions/0.1.3-preview": {
+      "HowMacro.Abstractions/0.1.4-preview": {
         "runtime": {
           "HowMacro.Abstractions.dll": {
-            "assemblyVersion": "0.1.3.0",
-            "fileVersion": "0.1.3.0"
+            "assemblyVersion": "0.1.4.0",
+            "fileVersion": "0.1.4.0"
           }
         }
       },
-      "HowMacro.Engine/0.1.3-preview": {
+      "HowMacro.Engine/0.1.4-preview": {
         "dependencies": {
-          "HowMacro.Abstractions": "0.1.3-preview",
+          "HowMacro.Abstractions": "0.1.4-preview",
           "Microsoft.CodeAnalysis.CSharp": "5.0.0"
         },
         "runtime": {
           "HowMacro.Engine.dll": {
-            "assemblyVersion": "0.1.3.0",
-            "fileVersion": "0.1.3.0"
+            "assemblyVersion": "0.1.4.0",
+            "fileVersion": "0.1.4.0"
           }
         }
       }
     }
   },
   "libraries": {
-    "HowMacro.Unity.Bridge/0.1.3-preview": {
+    "HowMacro.Unity.Bridge/0.1.4-preview": {
       "type": "project",
       "serviceable": false,
       "sha512": ""
@@ -140,6 +165,13 @@
       "sha512": "sha512-5DSyJ9bk+ATuDy7fp2Zt0mJStDVKbBoiz1DyfAwSa+k4H4IwykAUcV3URelw5b8/iVbfSaOwkwmPUZH6opZKCw==",
       "path": "microsoft.codeanalysis.csharp/5.0.0",
       "hashPath": "microsoft.codeanalysis.csharp.5.0.0.nupkg.sha512"
+    },
+    "Mono.Cecil/0.11.6": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-f33RkDtZO8VlGXCtmQIviOtxgnUdym9xx/b1p9h91CRGOsJFxCFOFK1FDbVt1OCf1aWwYejUFa2MOQyFWTFjbA==",
+      "path": "mono.cecil/0.11.6",
+      "hashPath": "mono.cecil.0.11.6.nupkg.sha512"
     },
     "System.Collections.Immutable/9.0.0": {
       "type": "package",
@@ -169,12 +201,12 @@
       "path": "system.text.encoding.codepages/8.0.0",
       "hashPath": "system.text.encoding.codepages.8.0.0.nupkg.sha512"
     },
-    "HowMacro.Abstractions/0.1.3-preview": {
+    "HowMacro.Abstractions/0.1.4-preview": {
       "type": "project",
       "serviceable": false,
       "sha512": ""
     },
-    "HowMacro.Engine/0.1.3-preview": {
+    "HowMacro.Engine/0.1.4-preview": {
       "type": "project",
       "serviceable": false,
       "sha512": ""
