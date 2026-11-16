@@ -12,7 +12,7 @@ In **Window → Package Manager → + → Add package from git URL**:
 https://github.com/Howchilll/CSMacro.git#upm
 ```
 
-or pin a release with `#upm/v<version>`, e.g. `#upm/v0.1.3-preview`. Then:
+or pin a release with `#upm/v<version>`, e.g. `#upm/v0.1.4-preview`. Then:
 
 1. Put your macros in their own asmdef (they are ordinary C# using the `HowMacro` API; `HowMacro.Abstractions` is referenced automatically).
 2. Reference that asmdef from the assemblies that use the macros, and add `using static YourMacros;`.
@@ -29,6 +29,15 @@ Two samples come with the package (Package Manager → HowMacro for Unity → Sa
 - Generated code must be **C# 9** (Unity's language version). There is no `field` keyword, and a macro may not add names,
   so a member macro that needs state stores it in a field the user declares:
   `[SerializeField] int hp; public int Hp = @CLAMPED(nameof(hp), 0, 100);` (see Arena).
+- Macros can use Unity's **managed** types and math while they run: `Vector2/3/4`, `Vector2Int/3Int`, `Color`, `Color32`, `Rect`,
+  `RectInt`, `BoundsInt`, `Mathf.Clamp/Lerp/Sqrt/SmoothStep`, `Color.HSVToRGB`, and so on, in their signatures and bodies alike
+  (`public static Vector2Int[] MAP_PATH(string file)`). Engine calls implemented in native code (`Quaternion.Euler`, `Matrix4x4.TRS`,
+  `Mathf.PerlinNoise`, `Random`, `AnimationCurve`, ...) don't exist while macros expand; calling one is reported as
+  `error HMC005: ... UnityEngine.Quaternion.Euler is implemented in Unity's native engine code ...`. Emit code that makes the call
+  at runtime instead. (The bridge loads a rewritten copy of the engine assemblies, cached in `Library/HowMacro/engine`: native
+  methods throw that error, and native-backed finalizers, which would otherwise crash the compiler process, do nothing.)
+- `Debug.Log` / `LogWarning` / `LogError` / `LogException` inside a macro body become compile warnings at the macro's call site
+  (`warning HMC101: @MY_MACRO: Debug.Log: ...`), for printing while you debug a macro. Use `Macro.Error` to fail the build.
 - `Macro.Startup` code runs at `RuntimeInitializeLoadType.SubsystemRegistration`, before any user code.
 - Macro assemblies (any assembly declaring a `[Macro]`, `[AttributeMacro]` or `[RegionMacro]`) and `HowMacro.Abstractions`
   are left out of player builds: after expansion nothing references them. Keep runtime code out of macro assemblies.
@@ -63,16 +72,16 @@ which publishes the assembled package to the `upm` branch.
 The `upm` branch is just the assembled package at the repository root, one commit per release, so it can also be made by hand:
 
 ```bash
-python unity/pack_upm.py --out ../upm-out --version 0.1.3-preview
+python unity/pack_upm.py --out ../upm-out --version 0.1.4-preview
 git worktree add --detach ../upm-branch
 cd ../upm-branch
 git checkout --orphan upm        # first time only; later: git checkout upm
 git rm -rqf .
 cp -r ../upm-out/. .
 git add -A
-git commit -m "com.howmacro.unity 0.1.3-preview"
-git tag upm/v0.1.3-preview
-git push origin upm upm/v0.1.3-preview
+git commit -m "com.howmacro.unity 0.1.4-preview"
+git tag upm/v0.1.4-preview
+git push origin upm upm/v0.1.4-preview
 ```
 
 Before pushing, a test project can install the local branch through git, exactly like the GitHub URL

@@ -20,4 +20,8 @@
     <ProjectReference Include="../HowMacro.Engine/HowMacro.Engine.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Mono.Cecil" Version="0.11.6" />
+  </ItemGroup>
+
 </Project>

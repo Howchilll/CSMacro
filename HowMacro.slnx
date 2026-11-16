@@ -16,5 +16,6 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Demo.Macros.Tests/Demo.Macros.Tests.csproj" />
+    <Project Path="tests/HowMacro.Unity.Bridge.Tests/HowMacro.Unity.Bridge.Tests.csproj" />
   </Folder>
 </Solution>

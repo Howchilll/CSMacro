@@ -66,7 +66,7 @@ public static class Bridge
             StartupAttribute = "global::UnityEngine.RuntimeInitializeOnLoadMethod(global::UnityEngine.RuntimeInitializeLoadType.SubsystemRegistration)",
         };
 
-        using var invoker = new UnityInvoker(refs);
+        using var invoker = new UnityInvoker(refs, Path.Combine(projectDir, "Library", "HowMacro", "engine"));
         var result = MacroExpander.Expand(sources, options, invoker);
         foreach (var d in result.Diagnostics)
             diagnostics.Add(string.Join("\t", d.Level == DiagnosticLevel.Error ? "error" : "warning", d.FilePath, d.Line, d.Column, $"{d.Code}: {d.Message}"));
@@ -191,7 +191,7 @@ public static class Bridge
         readonly MacroLoadContext _alc;
         readonly Dictionary<string, Assembly> _assemblies = new(StringComparer.OrdinalIgnoreCase);
 
-        public UnityInvoker(IEnumerable<string> referencePaths) => _alc = new MacroLoadContext(referencePaths);
+        public UnityInvoker(IEnumerable<string> referencePaths, string engineCache) => _alc = new MacroLoadContext(referencePaths, engineCache);
 
         public void Invoke(MacroMethod m, MacroContext context)
         {
@@ -199,7 +199,8 @@ public static class Bridge
             if (!_assemblies.TryGetValue(path, out var asm))
                 // From bytes: Unity rewrites the file in place, and loading from a path would keep it locked on Windows
                 _assemblies[path] = asm = _alc.LoadFromStream(new MemoryStream(File.ReadAllBytes(path)));
-            MacroReflection.Invoke(asm, m, context);
+            try { MacroReflection.Invoke(asm, m, context); }
+            catch (Exception e) when (NativeEngineCallException.From(e) is { } native) { throw native; }
         }
 
         public void Dispose() => _alc.Unload();
@@ -208,6 +209,7 @@ public static class Bridge
         {
             static readonly Assembly Abstractions = typeof(HowMacro.Macro).Assembly;
             readonly Dictionary<string, string> _byName = new(StringComparer.OrdinalIgnoreCase);
+            readonly string _engineCache;
 
             // The runtime's own assemblies (netstandard, mscorlib, System.*): Unity's compile references include
             // reference-only copies of these, which must never be loaded for execution
@@ -216,8 +218,9 @@ public static class Bridge
                     .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries).Select(Path.GetFileNameWithoutExtension)!,
                 StringComparer.OrdinalIgnoreCase);
 
-            public MacroLoadContext(IEnumerable<string> referencePaths) : base("HowMacro.Macros", isCollectible: true)
+            public MacroLoadContext(IEnumerable<string> referencePaths, string engineCache) : base("HowMacro.Macros", isCollectible: true)
             {
+                _engineCache = engineCache;
                 foreach (var p in referencePaths) _byName.TryAdd(Path.GetFileNameWithoutExtension(p), p);
             }
 
@@ -225,12 +228,15 @@ public static class Bridge
             {
                 // The engine's copy of the API, so macros and engine share the static Macro context
                 if (name.Name == Abstractions.GetName().Name) return Abstractions;
-                // Unity's engine assemblies etc. are not loadable on .NET 6 and macros shouldn't need them at expansion time;
-                // other user assemblies come from the compile references
+                // The rewritten engine assemblies log through EngineLog, in this assembly
+                if (name.Name == typeof(EngineLog).Assembly.GetName().Name) return typeof(EngineLog).Assembly;
+                // Everything else comes from the compile references. Unity's engine assemblies are rewritten first (see
+                // EngineRewriter): their managed parts (Vector3, Color, Mathf, ...) work, native calls throw a clear error
                 if (name.Name != null && !Framework.Contains(name.Name)
-                    && !name.Name.StartsWith("UnityEngine", StringComparison.Ordinal) && !name.Name.StartsWith("UnityEditor", StringComparison.Ordinal)
                     && _byName.TryGetValue(name.Name, out var path) && File.Exists(path))
-                    return LoadFromStream(new MemoryStream(File.ReadAllBytes(path)));
+                    return LoadFromStream(new MemoryStream(EngineRewriter.Applies(name.Name)
+                        ? EngineRewriter.Load(path, _engineCache, _byName.Values.Select(Path.GetDirectoryName).OfType<string>().Distinct())
+                        : File.ReadAllBytes(path)));
                 return null;
             }
         }
