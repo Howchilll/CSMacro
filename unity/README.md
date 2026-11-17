@@ -40,10 +40,11 @@ Three samples come with the package (Package Manager → HowMacro for Unity → 
 - `Debug.Log` / `LogWarning` / `LogError` / `LogException` inside a macro body become compile warnings at the macro's call site
   (`warning HMC101: @MY_MACRO: Debug.Log: ...`), for printing while you debug a macro. Use `Macro.Error` to fail the build.
 - `Macro.Startup` code runs at `RuntimeInitializeLoadType.SubsystemRegistration`, before any user code.
-- **Known limitation:** a member a macro turns from a field into a property (e.g. `@COLORLOG`) works inside its own
-  assembly, but other assemblies are compiled against Unity's reference assembly of the *unexpanded* code, where it is
-  still a field; using it from another assembly compiles and then fails at runtime with `MissingFieldException`.
-  Until that is handled, access such members only from their own assembly.
+- **Keep macros local to their assembly.** HowMacro is for convenience inside the code you are writing, not an API
+  boundary. A member a macro turns from a field into a property (e.g. `@COLORLOG`) is only a property inside its own
+  assembly: other assemblies compile against Unity's reference assembly of the *unexpanded* code, where it is still a
+  field, so using it from there fails at runtime with `MissingFieldException`. If another assembly needs the value,
+  bridge it in your own code (an ordinary method or property that wraps the member).
 - Macro assemblies (any assembly declaring a `[Macro]`, `[AttributeMacro]` or `[RegionMacro]`) and `HowMacro.Abstractions`
   are left out of player builds: after expansion nothing references them. Keep runtime code out of macro assemblies.
 - If a macro reads something Unity doesn't treat as a script input (like `ProjectSettings/TagManager.asset`), use

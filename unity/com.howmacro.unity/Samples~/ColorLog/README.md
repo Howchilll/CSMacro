@@ -28,5 +28,5 @@ to keep in sync.
 
 Layout: `Tools/` (ColorfulLogger, runtime), `Macros/` (the macros; left out of player builds), `Game/` (the demo).
 Needs com.howmacro.unity 0.1.5-preview or later (macros keeping private state).
-Known limitation: `value1`/`value2` become properties only inside `ColorLog.Game`; another assembly using them directly
-fails at runtime with `MissingFieldException` (see the package README).
+Macros are meant to stay local: `value1`/`value2` are properties only inside `ColorLog.Game`; another assembly using
+them directly fails at runtime (`MissingFieldException`), so bridge them in your own code if you need them elsewhere.
