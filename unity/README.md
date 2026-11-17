@@ -12,7 +12,7 @@ In **Window → Package Manager → + → Add package from git URL**:
 https://github.com/Howchilll/CSMacro.git#upm
 ```
 
-or pin a release with `#upm/v<version>`, e.g. `#upm/v0.1.4-preview`. Then:
+or pin a release with `#upm/v<version>`, e.g. `#upm/v0.1.5-preview`. Then:
 
 1. Put your macros in their own asmdef (they are ordinary C# using the `HowMacro` API; `HowMacro.Abstractions` is referenced automatically).
 2. Reference that asmdef from the assemblies that use the macros, and add `using static YourMacros;`.
@@ -72,16 +72,16 @@ which publishes the assembled package to the `upm` branch.
 The `upm` branch is just the assembled package at the repository root, one commit per release, so it can also be made by hand:
 
 ```bash
-python unity/pack_upm.py --out ../upm-out --version 0.1.4-preview
+python unity/pack_upm.py --out ../upm-out --version 0.1.5-preview
 git worktree add --detach ../upm-branch
 cd ../upm-branch
 git checkout --orphan upm        # first time only; later: git checkout upm
 git rm -rqf .
 cp -r ../upm-out/. .
 git add -A
-git commit -m "com.howmacro.unity 0.1.4-preview"
-git tag upm/v0.1.4-preview
-git push origin upm upm/v0.1.4-preview
+git commit -m "com.howmacro.unity 0.1.5-preview"
+git tag upm/v0.1.5-preview
+git push origin upm upm/v0.1.5-preview
 ```
 
 Before pushing, a test project can install the local branch through git, exactly like the GitHub URL

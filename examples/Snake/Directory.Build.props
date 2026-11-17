@@ -5,7 +5,7 @@
   -->
   <PropertyGroup>
     <!-- Version of the HowMacro package to reference -->
-    <HowMacroVersion>0.1.4-preview</HowMacroVersion>
+    <HowMacroVersion>0.1.5-preview</HowMacroVersion>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
   </PropertyGroup>
