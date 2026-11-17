@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.CodeAnalysis;
@@ -48,6 +49,63 @@ namespace HowMacro.Engine
                 }
             }
             return ok;
+        }
+
+        /// <summary>
+        /// Member and region macros may add private fields for their own state (e.g. <c>private int @_temp_Hp;</c>). They don't
+        /// exist in the unexpanded source, so source code that names one would compile after expansion while the IDE shows an
+        /// error: reported as HMC021. Found by comparing each type's member names before and after expansion.
+        /// </summary>
+        private static void CheckPrivateStateUses(Compilation after, IReadOnlyList<SyntaxTree> targets, IReadOnlyList<SyntaxTree> expanded, IReadOnlyList<SemanticModel> models,
+            bool[] failed, List<MacroDiagnostic> diagnostics)
+        {
+            var added = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+            for (var i = 0; i < targets.Count; i++)
+            {
+                if (ReferenceEquals(expanded[i], targets[i])) continue;
+                var model = after.GetSemanticModel(expanded[i]);
+                foreach (var decl in expanded[i].GetRoot().DescendantNodes().OfType<Microsoft.CodeAnalysis.CSharp.Syntax.TypeDeclarationSyntax>())
+                {
+                    if (!(model.GetDeclaredSymbol(decl) is INamedTypeSymbol type)) continue;
+                    var key = type.ToDisplayString();
+                    if (added.ContainsKey(key)) continue;
+                    var original = models[i].Compilation.GetTypeByMetadataName(MetadataNameOf(type));
+                    if (original == null) continue;
+                    var before = new HashSet<string>(original.GetMembers().Select(m => m.Name));
+                    var extra = new HashSet<string>(type.GetMembers().OfType<IFieldSymbol>()
+                        .Where(f => f.DeclaredAccessibility == Accessibility.Private && !f.IsImplicitlyDeclared && !before.Contains(f.Name))
+                        .Select(f => f.Name));
+                    if (extra.Count > 0) added[key] = extra;
+                }
+            }
+            if (added.Count == 0) return;
+
+            for (var i = 0; i < targets.Count; i++)
+            {
+                foreach (var id in targets[i].GetRoot().DescendantNodes().OfType<Microsoft.CodeAnalysis.CSharp.Syntax.IdentifierNameSyntax>())
+                {
+                    var enclosing = models[i].GetEnclosingSymbol(id.SpanStart);
+                    var type = enclosing as INamedTypeSymbol ?? enclosing?.ContainingType;
+                    if (type == null || !added.TryGetValue(type.ToDisplayString(), out var names) || !names.Contains(id.Identifier.ValueText)) continue;
+                    var info = models[i].GetSymbolInfo(id);
+                    if (info.Symbol != null || info.CandidateSymbols.Length > 0) continue;
+
+                    var pos = id.GetLocation().GetLineSpan().StartLinePosition;
+                    diagnostics.Add(new MacroDiagnostic(DiagnosticLevel.Error, "HMC021",
+                        $"'{id.Identifier.ValueText}' is a private field a macro generates for its own state; it doesn't exist in the source, " +
+                        "so the IDE can't see it. Use the member the macro expands instead",
+                        targets[i].FilePath, pos.Line + 1, pos.Character + 1));
+                    failed[i] = true;
+                }
+            }
+        }
+
+        private static string MetadataNameOf(INamedTypeSymbol type)
+        {
+            var name = type.MetadataName;
+            for (var outer = type.ContainingType; outer != null; outer = outer.ContainingType) name = outer.MetadataName + "+" + name;
+            var ns = type.ContainingNamespace;
+            return ns == null || ns.IsGlobalNamespace ? name : ns.ToDisplayString() + "." + name;
         }
     }
 }

@@ -227,6 +227,9 @@ namespace HowMacro.Engine
             for (var i = 0; i < n; i++)
                 if (!ReferenceEquals(expanded[i], targets[i])) after = after.ReplaceSyntaxTree(targets[i], expanded[i]);
 
+            // ---- 3a. private fields a macro added for its own state can't be used by the source (they don't exist before expansion) ----
+            CheckPrivateStateUses(after, targets, expanded, models, failed, diagnostics);
+
             for (var i = 0; i < n; i++)
             {
                 if (failed[i] || ReferenceEquals(expanded[i], targets[i])) continue;
@@ -805,6 +808,9 @@ namespace HowMacro.Engine
         /// A Member macro's output must be exactly one field or property whose name and type match the source declaration.
         /// That way what the IDE sees in <c>public int Hp = @M(...)</c> (an int field Hp) and the member the compiler actually gets
         /// are equivalent to any code that uses Hp.
+        /// Besides it, the output may declare private fields for the macro's own state (e.g. the storage behind a property:
+        /// <c>private int @_temp_Hp;</c>). Nothing outside the type can see them and the source can't name them (they don't
+        /// exist before expansion), so the IDE's view stays correct. By convention they are named <c>@_temp_&lt;member&gt;</c>.
         /// </summary>
         private static (string Code, string Message)? CheckMember(string code, string name, string type, CSharpParseOptions options)
         {
@@ -812,7 +818,8 @@ namespace HowMacro.Engine
             if (FirstError(unit) is string parseError)
                 return ("HMC011", $"emitted code is not a valid member declaration: {parseError}");
 
-            var members = unit.Members.OfType<ClassDeclarationSyntax>().Single().Members;
+            var members = unit.Members.OfType<ClassDeclarationSyntax>().Single().Members
+                .Where(m => !IsPrivateState(m, name)).ToList();
             var declared = members.Select(DescribeMember).ToList();
 
             if (members.Count != 1 || declared[0] == null || declared[0]!.Value.Name != name)
@@ -822,7 +829,8 @@ namespace HowMacro.Engine
                     : string.Join(", ", declared.Select(d => d == null ? "a non-field/property member" : $"'{d.Value.Name}'"));
                 return ("HMC008",
                     $"must emit exactly one field or property named '{name}' (the name declared in source), but emitted {got}. " +
-                    "Macros may not introduce or remove names: the unexpanded source must stay statically correct, so the IDE never sees a name that doesn't exist");
+                    "Macros may not introduce or remove names: the unexpanded source must stay statically correct, so the IDE never sees a name that doesn't exist. " +
+                    $"For the macro's own state, add private fields (by convention named @_temp_{name})");
             }
 
             if (Normalize(declared[0]!.Value.Type) != Normalize(type))
@@ -841,6 +849,12 @@ namespace HowMacro.Engine
             };
 
             static string Normalize(string s) => new string(s.Where(c => !char.IsWhiteSpace(c)).ToArray());
+
+            // A private field (no access modifier, or `private`) that isn't the declared member itself
+            static bool IsPrivateState(MemberDeclarationSyntax m, string declared) =>
+                m is FieldDeclarationSyntax f
+                && !f.Modifiers.Any(t => t.IsKind(SyntaxKind.PublicKeyword) || t.IsKind(SyntaxKind.InternalKeyword) || t.IsKind(SyntaxKind.ProtectedKeyword))
+                && f.Declaration.Variables.All(v => v.Identifier.ValueText != declared);
         }
 
         private static string? FirstError(SyntaxNode node) =>
