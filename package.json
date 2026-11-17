@@ -1,7 +1,7 @@
 {
   "name": "com.howmacro.unity",
   "displayName": "HowMacro for Unity",
-  "version": "0.1.5-preview",
+  "version": "0.1.6-preview",
   "unity": "2022.3",
   "description": "Compile-time macros for C# in Unity. A macro is ordinary C#: the IDE sees a normal method call or attribute; at compile time an ILPostProcessor expands it, and only the expanded code reaches the player.",
   "keywords": [
@@ -18,6 +18,11 @@
     "url": "https://github.com/Howchilll/CSMacro"
   },
   "samples": [
+    {
+      "displayName": "ColorLog",
+      "description": "Everyday macros on one MonoBehaviour: @COLORLOG (a field that logs each change in color), [@Get] auto GetComponent, [@Save] PlayerPrefs saving, [@Watch] a live debug box. Add ColorLogDemo to a Cube.",
+      "path": "Samples~/ColorLog"
+    },
     {
       "displayName": "Demo",
       "description": "[@Command] debug buttons registered by generated startup code, a [@Watch] overlay, @ASSERT compiled out of release builds. Menu: HowMacro > Create Demo Scene.",

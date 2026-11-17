@@ -1,0 +1,6 @@
+{
+    "name": "ColorLog.Game",
+    "rootNamespace": "ColorLog.Game",
+    "references": ["ColorLog.Macros", "ColorLog.Tools"],
+    "autoReferenced": true
+}
