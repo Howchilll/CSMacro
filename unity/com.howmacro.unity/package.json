@@ -13,6 +13,11 @@
   },
   "samples": [
     {
+      "displayName": "ColorLog",
+      "description": "Everyday macros on one MonoBehaviour: @COLORLOG (a field that logs each change in color), [@Get] auto GetComponent, [@Save] PlayerPrefs saving, [@Watch] a live debug box. Add ColorLogDemo to a Cube.",
+      "path": "Samples~/ColorLog"
+    },
+    {
       "displayName": "Demo",
       "description": "[@Command] debug buttons registered by generated startup code, a [@Watch] overlay, @ASSERT compiled out of release builds. Menu: HowMacro > Create Demo Scene.",
       "path": "Samples~/Demo"

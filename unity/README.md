@@ -17,10 +17,11 @@ or pin a release with `#upm/v<version>`, e.g. `#upm/v0.1.5-preview`. Then:
 1. Put your macros in their own asmdef (they are ordinary C# using the `HowMacro` API; `HowMacro.Abstractions` is referenced automatically).
 2. Reference that asmdef from the assemblies that use the macros, and add `using static YourMacros;`.
 
-Two samples come with the package (Package Manager → HowMacro for Unity → Samples):
+Three samples come with the package (Package Manager → HowMacro for Unity → Samples):
 
 | Sample | Shows |
 |---|---|
+| [ColorLog](com.howmacro.unity/Samples~/ColorLog/README.md) | Everyday macros on one MonoBehaviour: `@COLORLOG` turns a field into a property that logs each change in color, `[@Get]` + `@GET_ALL()` fills components, `[@Save]` + `@SAVE_ALL()`/`@LOAD_ALL()` saves to PlayerPrefs, `[@Watch]` + `@WATCH_GUI()` draws a live debug box. Add `ColorLogDemo` to a Cube. |
 | [Demo](com.howmacro.unity/Samples~/Demo/) | `[@Command]` buttons registered by generated startup code, a `[@Watch]` overlay, `@ASSERT` compiled out of release builds, `@LOG_VALUE`. Menu **HowMacro → Create Demo Scene**. |
 | [Arena](com.howmacro.unity/Samples~/Arena/README.md) | `@CLAMPED` properties over serialized fields, PlayerPrefs saving with `[@Save]`, tag and layer names checked at compile time. Needs the tag `Enemy` and the layers `Ground` and `Enemy`. Menu **HowMacro → Create Arena Scene**. |
 
@@ -39,6 +40,10 @@ Two samples come with the package (Package Manager → HowMacro for Unity → Sa
 - `Debug.Log` / `LogWarning` / `LogError` / `LogException` inside a macro body become compile warnings at the macro's call site
   (`warning HMC101: @MY_MACRO: Debug.Log: ...`), for printing while you debug a macro. Use `Macro.Error` to fail the build.
 - `Macro.Startup` code runs at `RuntimeInitializeLoadType.SubsystemRegistration`, before any user code.
+- **Known limitation:** a member a macro turns from a field into a property (e.g. `@COLORLOG`) works inside its own
+  assembly, but other assemblies are compiled against Unity's reference assembly of the *unexpanded* code, where it is
+  still a field; using it from another assembly compiles and then fails at runtime with `MissingFieldException`.
+  Until that is handled, access such members only from their own assembly.
 - Macro assemblies (any assembly declaring a `[Macro]`, `[AttributeMacro]` or `[RegionMacro]`) and `HowMacro.Abstractions`
   are left out of player builds: after expansion nothing references them. Keep runtime code out of macro assemblies.
 - If a macro reads something Unity doesn't treat as a script input (like `ProjectSettings/TagManager.asset`), use

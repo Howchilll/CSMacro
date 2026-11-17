@@ -1,0 +1,6 @@
+{
+    "name": "ColorLog.Tools",
+    "rootNamespace": "ColorLog.Tools",
+    "references": [],
+    "autoReferenced": true
+}
