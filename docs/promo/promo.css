@@ -40,3 +40,9 @@ pre { font-family: Menlo, "SF Mono", monospace; line-height: 1.6; padding: 18px 
 .pill i { font-style: normal; color: var(--a2); margin-right: 6px; }
 .foot { color: var(--muted); font-family: Menlo, monospace; }
 .foot b { color: var(--text); font-weight: 600; }
+.vals { display: grid; }
+.val { display: grid; grid-template-columns: auto 1fr; column-gap: 14px; align-items: baseline; }
+.val .n { font-family: Menlo, monospace; font-weight: 700; color: var(--a2); }
+.val h3 { font-weight: 700; letter-spacing: -0.01em; }
+.val p { grid-column: 2; color: var(--muted); line-height: 1.4; margin-top: 3px; }
+.step { color: var(--a2); font-family: Menlo, monospace; font-weight: 700; margin-right: 4px; }

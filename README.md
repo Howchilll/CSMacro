@@ -1,9 +1,18 @@
 # HowMacro
 
-![HowMacro: you write one line, the compiler gets plain C#](docs/promo/banner.png)
+![HowMacro: build your own compile-time abstractions in C#](docs/promo/banner.png)
 
-Compile-time macros for C#. A macro is ordinary C# code: the IDE sees it as a normal method call or attribute, with completion,
-type checking and go-to-definition. Before compilation, the macro's body runs and expands into code; at runtime only the expanded result remains.
+**HowMacro gives C# developers the power to define their own compile-time abstractions.** It isn't just about writing less code:
+complex, repetitive structures get folded into macros you write in ordinary C#, while the source you maintain stays readable.
+
+- **Compress complexity.** Fold repeated structures that functions, generics and design patterns can't abstract cleanly.
+- **IDE-native.** A macro is readable, indexed C#. The IDE sees each use as a normal method call or attribute,
+  with completion, type checking and F12 to the macro's definition. No IDE plugin.
+- **Source stays yours.** You only maintain the unexpanded source. The macro bodies run before compilation and expand
+  into plain C#; there is no generated code to check in or keep in sync, and at runtime only the expanded result remains.
+- **Your own macro system.** Write macros for your team's conventions, business rules and domain abstractions.
+
+For example:
 
 ```csharp
 public class Player
