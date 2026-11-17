@@ -1,5 +1,7 @@
 # HowMacro
 
+![HowMacro: you write one line, the compiler gets plain C#](docs/promo/banner.png)
+
 Compile-time macros for C#. A macro is ordinary C# code: the IDE sees it as a normal method call or attribute, with completion,
 type checking and go-to-definition. Before compilation, the macro's body runs and expands into code; at runtime only the expanded result remains.
 

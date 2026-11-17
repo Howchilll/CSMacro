@@ -1,0 +1,48 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="promo.css">
+<style>
+  body { width: 1280px; height: 640px; padding: 46px 56px; }
+  .g1 { width: 420px; height: 420px; left: -120px; top: -140px; } .g2 { width: 460px; height: 460px; right: -160px; bottom: -200px; }
+  .top { display: flex; justify-content: space-between; align-items: flex-end; }
+  .mark { width: 54px; height: 54px; font-size: 32px; } .name { font-size: 34px; }
+  h1 { font-size: 44px; margin-top: 22px; } .tag { font-size: 21px; margin-top: 10px; }
+  .pills { justify-content: flex-end; max-width: 520px; } .pill { font-size: 15px; }
+  .code { display: grid; grid-template-columns: 1.1fr 52px 1fr; margin-top: 40px; align-items: stretch; }
+  pre { font-size: 16px; line-height: 1.7; } .right pre { font-size: 14px; line-height: 1.62; }
+  .arrow { font-size: 34px; }
+  .foot { position: absolute; left: 56px; right: 56px; bottom: 30px; display: flex; justify-content: space-between; font-size: 15px; }
+</style></head><body>
+<div class="glow g1"></div><div class="glow g2"></div>
+<div class="top">
+  <div>
+    <div class="brand"><div class="mark">@</div><div class="name">HowMacro</div></div>
+    <h1>Compile&#8209;time macros for <span class="grad">C#</span></h1>
+    <div class="tag">You write one line. The compiler gets plain C#.</div>
+  </div>
+  <div class="pills">
+    <div class="pill"><i>✓</i>IDE sees ordinary C#, no plugin</div>
+    <div class="pill"><i>✓</i>Misuse is a compile error</div>
+    <div class="pill"><i>✓</i>Zero runtime reflection</div>
+    <div class="pill"><i>✓</i>Unity &amp; .NET</div>
+  </div>
+</div>
+<div class="code">
+  <div class="card left"><div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="label"><b>You write</b> · Player.cs</span></div>
+<pre>[<span class="m">@Save</span>] <span class="kw">public int</span> gold = <span class="m">@COLORLOG</span>(<span class="num">0</span>, <span class="ty">Color</span>.yellow);
+[<span class="m">@Get</span>] <span class="ty">Rigidbody</span> body;
+
+<span class="kw">void</span> <span class="fn">Awake</span>() { <span class="m">@GET_ALL</span>(); }
+<span class="kw">void</span> <span class="fn">OnApplicationQuit</span>() { <span class="m">@SAVE_ALL</span>(); }</pre></div>
+  <div class="arrow">→</div>
+  <div class="card right"><div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="label"><b>Compiler gets</b> · expanded at build time</span></div>
+<pre><span class="kw">private int</span> _temp_gold;
+<span class="kw">public int</span> gold { <span class="kw">get</span> =&gt; _temp_gold; <span class="kw">set</span> {
+  <span class="kw">if</span> (_temp_gold == <span class="kw">value</span>) <span class="kw">return</span>;
+  <span class="ty">ColorfulLogger</span>.<span class="fn">Log</span>(<span class="str">$"gold -&gt; {value}"</span>, <span class="ty">Color</span>.yellow);
+  _temp_gold = <span class="kw">value</span>; } }
+<span class="kw">void</span> <span class="fn">Awake</span>() { body = <span class="fn">GetComponent</span>&lt;<span class="ty">Rigidbody</span>&gt;(); }
+<span class="kw">void</span> <span class="fn">OnApplicationQuit</span>() {
+  <span class="ty">PlayerPrefs</span>.<span class="fn">SetInt</span>(<span class="str">"Player.gold"</span>, gold);
+  <span class="ty">PlayerPrefs</span>.<span class="fn">Save</span>(); }</pre></div>
+</div>
+<div class="foot"><span><b>github.com/Howchilll/CSMacro</b></span><span>NuGet · HowMacro &nbsp;|&nbsp; Unity · UPM</span></div>
+</body></html>

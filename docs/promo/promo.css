@@ -1,0 +1,42 @@
+:root {
+  --bg: #0b0f17; --card: #131a26; --line: #222c3d; --text: #e6edf3; --muted: #8b98aa;
+  --kw: #ff7b72; --ty: #7ee0d8; --str: #a5d6ff; --num: #79c0ff; --com: #6e7b8f; --fn: #d2a8ff;
+  --macro: #ffd166; --a1: #b28dff; --a2: #3fd0e0;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: var(--bg); }
+body {
+  color: var(--text);
+  font-family: -apple-system, "SF Pro Display", "PingFang SC", "Helvetica Neue", sans-serif;
+  overflow: hidden; position: relative;
+}
+.glow { position: absolute; border-radius: 50%; filter: blur(90px); opacity: .35; pointer-events: none; }
+.g1 { background: var(--a1); } .g2 { background: var(--a2); }
+.brand { display: flex; align-items: center; gap: 18px; }
+.mark {
+  display: grid; place-items: center; border-radius: 22%;
+  background: linear-gradient(135deg, var(--a1), var(--a2));
+  color: #0b0f17; font-weight: 800; font-family: Menlo, monospace;
+}
+.name { font-weight: 800; letter-spacing: -0.02em; }
+.grad { background: linear-gradient(90deg, var(--a1), var(--a2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+h1 { font-weight: 800; letter-spacing: -0.025em; line-height: 1.08; }
+.tag { color: var(--muted); line-height: 1.4; }
+.card {
+  background: var(--card); border: 1px solid var(--line); border-radius: 18px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.45); overflow: hidden;
+}
+.card .bar { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 15px; }
+.dot { width: 11px; height: 11px; border-radius: 50%; background: #2d3748; }
+.label { margin-left: 8px; letter-spacing: .02em; }
+.label b { color: var(--text); font-weight: 600; }
+pre { font-family: Menlo, "SF Mono", monospace; line-height: 1.6; padding: 18px 20px; white-space: pre; }
+.kw { color: var(--kw); } .ty { color: var(--ty); } .str { color: var(--str); } .num { color: var(--num); }
+.com { color: var(--com); } .fn { color: var(--fn); }
+.m { color: var(--macro); font-weight: 700; text-shadow: 0 0 18px rgba(255,209,102,.35); }
+.arrow { display: grid; place-items: center; color: var(--a2); font-weight: 700; }
+.pills { display: flex; flex-wrap: wrap; gap: 10px; }
+.pill { border: 1px solid var(--line); background: rgba(255,255,255,.03); border-radius: 999px; padding: 8px 16px; color: #cdd6e2; }
+.pill i { font-style: normal; color: var(--a2); margin-right: 6px; }
+.foot { color: var(--muted); font-family: Menlo, monospace; }
+.foot b { color: var(--text); font-weight: 600; }
