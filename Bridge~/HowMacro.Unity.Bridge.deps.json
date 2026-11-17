@@ -6,9 +6,9 @@
   "compilationOptions": {},
   "targets": {
     ".NETCoreApp,Version=v6.0": {
-      "HowMacro.Unity.Bridge/0.1.4-preview": {
+      "HowMacro.Unity.Bridge/0.1.5-preview": {
         "dependencies": {
-          "HowMacro.Engine": "0.1.4-preview",
+          "HowMacro.Engine": "0.1.5-preview",
           "Mono.Cecil": "0.11.6"
         },
         "runtime": {
@@ -124,30 +124,30 @@
           }
         }
       },
-      "HowMacro.Abstractions/0.1.4-preview": {
+      "HowMacro.Abstractions/0.1.5-preview": {
         "runtime": {
           "HowMacro.Abstractions.dll": {
-            "assemblyVersion": "0.1.4.0",
-            "fileVersion": "0.1.4.0"
+            "assemblyVersion": "0.1.5.0",
+            "fileVersion": "0.1.5.0"
           }
         }
       },
-      "HowMacro.Engine/0.1.4-preview": {
+      "HowMacro.Engine/0.1.5-preview": {
         "dependencies": {
-          "HowMacro.Abstractions": "0.1.4-preview",
+          "HowMacro.Abstractions": "0.1.5-preview",
           "Microsoft.CodeAnalysis.CSharp": "5.0.0"
         },
         "runtime": {
           "HowMacro.Engine.dll": {
-            "assemblyVersion": "0.1.4.0",
-            "fileVersion": "0.1.4.0"
+            "assemblyVersion": "0.1.5.0",
+            "fileVersion": "0.1.5.0"
           }
         }
       }
     }
   },
   "libraries": {
-    "HowMacro.Unity.Bridge/0.1.4-preview": {
+    "HowMacro.Unity.Bridge/0.1.5-preview": {
       "type": "project",
       "serviceable": false,
       "sha512": ""
@@ -201,12 +201,12 @@
       "path": "system.text.encoding.codepages/8.0.0",
       "hashPath": "system.text.encoding.codepages.8.0.0.nupkg.sha512"
     },
-    "HowMacro.Abstractions/0.1.4-preview": {
+    "HowMacro.Abstractions/0.1.5-preview": {
       "type": "project",
       "serviceable": false,
       "sha512": ""
     },
-    "HowMacro.Engine/0.1.4-preview": {
+    "HowMacro.Engine/0.1.5-preview": {
       "type": "project",
       "serviceable": false,
       "sha512": ""
