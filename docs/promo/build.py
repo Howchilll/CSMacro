@@ -8,28 +8,23 @@ CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 def define(comment):
     return f'''<span class="com">// {comment}</span>
 [<span class="ty">Macro</span>(<span class="ty">MacroSite</span>.Member)]
-<span class="kw">public static</span> T <span class="fn">LOGGED</span>&lt;T&gt;(T initial)
+<span class="kw">public static</span> T <span class="fn">GETSET</span>&lt;T&gt;(T target)
 {{
-    <span class="kw">string</span> t = <span class="ty">Macro</span>.Type, n = <span class="ty">Macro</span>.Name, s = <span class="str">"@_temp_"</span> + n;
-    <span class="ty">Macro</span>.<span class="fn">Emit</span>(<span class="str">$"private {{t}} {{s}} = {{</span><span class="ty">Macro</span>.<span class="fn">Arg</span>(<span class="num">0</span>)<span class="str">}};"</span>);
-    <span class="ty">Macro</span>.<span class="fn">Emit</span>(<span class="str">$"public {{t}} {{n}} {{{{ get =&gt; {{s}}; set {{{{ "</span> +
-               <span class="str">$"Log(\\"{{n}}\\", value); {{s}} = value; }}}} }}}}"</span>);
+    <span class="kw">var</span> path = <span class="ty">Macro</span>.<span class="fn">Arg</span>(<span class="num">0</span>);
+    <span class="kw">if</span> (<span class="ty">Macro</span>.<span class="fn">ArgSymbol</span>(<span class="num">0</span>) <span class="kw">is not</span> {{ CanWrite: <span class="kw">true</span> }})
+    {{ <span class="ty">Macro</span>.<span class="fn">Error</span>(<span class="str">$"`{{path}}` is read-only"</span>); <span class="kw">return default</span>; }}
+    <span class="ty">Macro</span>.<span class="fn">Emit</span>(<span class="str">$"{{</span><span class="ty">Macro</span>.Modifiers<span class="str">}} {{</span><span class="ty">Macro</span>.Type<span class="str">}} {{</span><span class="ty">Macro</span>.Name<span class="str">}} "</span> +
+               <span class="str">$"{{{{ get =&gt; {{path}}; set =&gt; {{path}} = value; }}}}"</span>);
     <span class="kw">return default</span>;
 }}'''
 
-USE = '''[<span class="m">@Save</span>] <span class="kw">public int</span> gold  = <span class="m">@LOGGED</span>(<span class="num">100</span>);
-[<span class="m">@Save</span>] <span class="kw">public int</span> level = <span class="m">@LOGGED</span>(<span class="num">1</span>);
-<span class="kw">void</span> <span class="fn">OnApplicationQuit</span>() { <span class="m">@SAVE_ALL</span>(); }'''
+def use(err):
+    return f'''<span class="kw">public int</span> Hp   = <span class="m">@GETSET</span>(<span class="ty">Data</span>.Player.Hp);
+<span class="kw">public int</span> Gold = <span class="m">@GETSET</span>(<span class="ty">Data</span>.Player.Gold);
+<span class="kw">public int</span> Max  = <span class="m">@GETSET</span>(<span class="ty">Config</span>.MaxHp);  <span class="err">// ✗ {err}</span>'''
 
-def gets(likewise):
-    return f'''<span class="kw">private int</span> _temp_gold = <span class="num">100</span>;
-<span class="kw">public int</span> gold {{ <span class="kw">get</span> =&gt; _temp_gold;
-    <span class="kw">set</span> {{ <span class="fn">Log</span>(<span class="str">"gold"</span>, <span class="kw">value</span>); _temp_gold = <span class="kw">value</span>; }} }}
-<span class="com">// {likewise}</span>
-<span class="kw">void</span> <span class="fn">OnApplicationQuit</span>() {{
-    <span class="ty">PlayerPrefs</span>.<span class="fn">SetInt</span>(<span class="str">"Player.gold"</span>, gold);
-    <span class="ty">PlayerPrefs</span>.<span class="fn">SetInt</span>(<span class="str">"Player.level"</span>, level);
-    <span class="ty">PlayerPrefs</span>.<span class="fn">Save</span>(); }}'''
+GETS = '''<span class="kw">public int</span> Hp   { <span class="kw">get</span> =&gt; <span class="ty">Data</span>.Player.Hp;   <span class="kw">set</span> =&gt; <span class="ty">Data</span>.Player.Hp = <span class="kw">value</span>; }
+<span class="kw">public int</span> Gold { <span class="kw">get</span> =&gt; <span class="ty">Data</span>.Player.Gold; <span class="kw">set</span> =&gt; <span class="ty">Data</span>.Player.Gold = <span class="kw">value</span>; }'''
 
 TEXT = {
     "en": dict(
@@ -38,10 +33,10 @@ TEXT = {
         vals=[("Compress complexity", "Fold repeated structures that functions, generics and patterns can't abstract cleanly."),
               ("IDE&#8209;native", "Macros are plain C#: readable, indexed, F12 jumps to the definition."),
               ("Source stays yours", "You maintain the unexpanded code. Expansion happens at build time; no generated code to keep."),
-              ("Your own macro system", "Package team conventions, business rules and domain abstractions as macros.")],
-        define="Macros/LogMacros.cs: a macro is plain C#",
+              ("Your own macro system", "Package team conventions, business rules and domain logic as macros.")],
+        define="Macros/M.cs: a macro is plain C#", err="compile error: read-only",
         s1="Define", s2="Use", s3="Compiler gets", f2="Player.cs", f3="expanded at build time",
-        likewise="… level likewise", h1ig="54px"),
+        h1ig="54px"),
     "zh": dict(
         headline='赋予 <span class="grad">C#</span><br><span class="grad">自定义编译期抽象</span>的能力',
         tag="不只是减少代码量：把复杂业务逻辑收束进宏，同时保持代码的可读性和可维护性。",
@@ -49,9 +44,9 @@ TEXT = {
               ("IDE 原生体验", "宏定义就是可读、可索引的 C# 代码，F12 直达定义。"),
               ("源代码可读", "只维护未展开的源代码，复杂实现由编译期自动展开，无需维护生成代码。"),
               ("开发者自定义", "把团队规范、业务逻辑和领域抽象封装成自己的宏体系。")],
-        define="Macros/LogMacros.cs：宏就是普通 C#",
+        define="Macros/M.cs：宏就是普通 C#", err="编译报错：只读",
         s1="定义宏", s2="使用", s3="编译器拿到", f2="Player.cs", f3="构建时自动展开",
-        likewise="… level 同理", h1ig="62px"),
+        h1ig="62px"),
 }
 
 def vals_html(t):
@@ -64,8 +59,8 @@ def card(cls, step, title, file, code):
 
 def cards(t):
     return "\n".join([card("c1", "①", t["s1"], "", define(t["define"])),
-                      card("c2", "②", t["s2"], t["f2"], USE),
-                      card("c3", "③", t["s3"], t["f3"], gets(t["likewise"]))])
+                      card("c2", "②", t["s2"], t["f2"], use(t["err"])),
+                      card("c3", "③", t["s3"], t["f3"], GETS)])
 
 FOOT = '<div class="foot"><span><b>github.com/Howchilll/CSMacro</b></span><span>NuGet · UPM</span></div>'
 
@@ -77,11 +72,11 @@ def banner(t):
   .left {{ display: flex; flex-direction: column; }}
   .mark {{ width: 46px; height: 46px; font-size: 27px; }} .name {{ font-size: 30px; }}
   h1 {{ font-size: 40px; margin-top: 22px; }} .tag {{ font-size: 16.5px; margin-top: 12px; }}
-  .vals {{ margin-top: 22px; row-gap: 12px; }} .val .n {{ font-size: 14px; }} .val h3 {{ font-size: 18px; }} .val p {{ font-size: 13.5px; }}
-  .foot {{ margin-top: auto; display: flex; justify-content: space-between; font-size: 13.5px; }}
-  .right {{ display: flex; flex-direction: column; gap: 10px; }}
+  .vals {{ margin-top: 18px; row-gap: 10px; }} .val .n {{ font-size: 14px; }} .val h3 {{ font-size: 17px; }} .val p {{ font-size: 13px; }}
+  .foot {{ margin-top: auto; padding-top: 10px; display: flex; justify-content: space-between; font-size: 13.5px; }}
+  .right {{ display: flex; flex-direction: column; gap: 14px; min-width: 0; }}
   .card .bar {{ font-size: 13px; padding: 8px 14px; }} .dot {{ width: 9px; height: 9px; }}
-  pre {{ font-size: 12.4px; line-height: 1.45; padding: 9px 16px; }}
+  pre {{ font-size: 13px; line-height: 1.55; padding: 12px 16px; }}
 </style></head><body>
 <div class="glow g1"></div><div class="glow g2"></div>
 <div class="left">
@@ -105,7 +100,7 @@ def ig(t, lang):
   .val .n {{ font-size: 16px; }} .val h3 {{ font-size: 22px; }} .val p {{ font-size: 16px; }}
   .right {{ margin-top: 24px; display: flex; flex-direction: column; gap: 12px; }}
   .card .bar {{ font-size: 16px; padding: 10px 18px; }}
-  pre {{ font-size: 15px; line-height: 1.5; padding: 10px 20px; }}
+  pre {{ font-size: 17px; line-height: 1.6; padding: 14px 22px; }}
   .foot {{ margin-top: auto; padding-top: 12px; display: flex; justify-content: space-between; font-size: 19px; }}
 </style></head><body>
 <div class="glow g1"></div><div class="glow g2"></div>
