@@ -18,15 +18,15 @@
 3. 拉代码并打包（PowerShell）：
 
    ```powershell
-   git clone https://github.com/Howchilll/CSMacro.git
-   cd CSMacro
+   git clone https://github.com/Howchilll/HowMacro.git
+   cd HowMacro
    python unity/pack_upm.py
    ```
 
    输出在 `artifacts/upm/com.howmacro.unity`。
 4. 在 `<工程>/Packages/manifest.json` 的 `dependencies` 里加一行（路径换成你的绝对路径，用正斜杠）：
-   `"com.howmacro.unity": "file:D:/.../CSMacro/artifacts/upm/com.howmacro.unity"`。
-   发布之后改用 git URL `https://github.com/Howchilll/CSMacro.git#upm`。
+   `"com.howmacro.unity": "file:D:/.../HowMacro/artifacts/upm/com.howmacro.unity"`。
+   发布之后改用 git URL `https://github.com/Howchilll/HowMacro.git#upm`。
 5. Package Manager → HowMacro for Unity → Samples → 导入 **Demo**（Arena 需要先加 Tag 和 Layer，见它的 README）。
 
 ## 测试清单

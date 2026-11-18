@@ -62,7 +62,7 @@ def cards(t):
                       card("c2", "②", t["s2"], t["f2"], use(t["err"])),
                       card("c3", "③", t["s3"], t["f3"], GETS)])
 
-FOOT = '<div class="foot"><span><b>github.com/Howchilll/CSMacro</b></span><span>NuGet · UPM</span></div>'
+FOOT = '<div class="foot"><span><b>github.com/Howchilll/HowMacro</b></span><span>NuGet · UPM</span></div>'
 
 def banner(t):
     return f'''<!doctype html><html lang="en"><head><meta charset="utf-8"><link rel="stylesheet" href="promo.css">

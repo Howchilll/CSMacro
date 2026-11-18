@@ -13,8 +13,8 @@
     <Authors>HowMacro contributors</Authors>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageTags>macro;metaprogramming;roslyn;msbuild;codegen</PackageTags>
-    <PackageProjectUrl>https://github.com/Howchilll/CSMacro</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/Howchilll/CSMacro</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/Howchilll/HowMacro</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/Howchilll/HowMacro</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
   </PropertyGroup>
 </Project>

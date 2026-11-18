@@ -2,8 +2,8 @@ name: UPM
 
 # Push a tag like v0.1.3-preview to publish the Unity package com.howmacro.unity to the `upm` branch
 # (one commit per release, tagged upm/v0.1.3-preview). Unity users install it with a git URL:
-#   https://github.com/Howchilll/CSMacro.git#upm                  latest release
-#   https://github.com/Howchilll/CSMacro.git#upm/v0.1.3-preview   a fixed version
+#   https://github.com/Howchilll/HowMacro.git#upm                  latest release
+#   https://github.com/Howchilll/HowMacro.git#upm/v0.1.3-preview   a fixed version
 # main holds only the package sources; unity/pack_upm.py adds the bridge and the macro API DLL.
 
 on:

@@ -9,7 +9,7 @@ Tested with Unity 2022.3 (macOS, editor + Mono) and Unity 6000.4 (Windows, edito
 In **Window → Package Manager → + → Add package from git URL**:
 
 ```
-https://github.com/Howchilll/CSMacro.git#upm
+https://github.com/Howchilll/HowMacro.git#upm
 ```
 
 or pin a release with `#upm/v<version>`, e.g. `#upm/v0.1.6-preview`. Then:
@@ -91,4 +91,4 @@ git push origin upm upm/v0.1.6-preview
 ```
 
 Before pushing, a test project can install the local branch through git, exactly like the GitHub URL
-(spaces in the path as `%20`): `"com.howmacro.unity": "git+file:///D:/path/to/CSMacro#upm"`.
+(spaces in the path as `%20`): `"com.howmacro.unity": "git+file:///D:/path/to/HowMacro#upm"`.

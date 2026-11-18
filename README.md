@@ -31,12 +31,12 @@ You can also wrap a group of members in `#region @LOG_ALL` … `#endregion` to p
 **Core principle: the unexpanded project must stay statically correct.** Names and types are declared only in source; macros change only the implementation.
 So what the IDE shows is always the truth, and no IDE plugin is needed.
 
-**To see it in a real project, look at [examples/Snake](https://github.com/Howchilll/CSMacro/blob/main/examples/Snake/README.md)**:
+**To see it in a real project, look at [examples/Snake](https://github.com/Howchilll/HowMacro/blob/main/examples/Snake/README.md)**:
 a terminal Snake game whose game logic is deliberately simple so the macros get the spotlight. It is a standalone project that consumes HowMacro through the NuGet package, with its macros written directly in the project's `Macros/` folder.
 Its README walks from installation through configuration to running, so it doubles as an integration tutorial. 24 lines in the game use macros and they generate 171 lines of code:
 change notification, value clamping, key bindings, a settings file, save data, Debug-only assertions and on-demand state tracing. The program at runtime contains no trace of the macros.
 
-For a smaller example, see [samples/Showcase](https://github.com/Howchilll/CSMacro/blob/main/samples/Showcase/README.md): an RPG character module.
+For a smaller example, see [samples/Showcase](https://github.com/Howchilll/HowMacro/blob/main/samples/Showcase/README.md): an RPG character module.
 
 ## Add it to your project
 
@@ -91,7 +91,7 @@ That's it:
 **When you have many macros or want to share them across projects**, move them into a separate macro library project (netstandard2.0, also referencing the `HowMacro` package).
 Other projects reference that macro library plus the `HowMacro` package; no `HowMacroDefinition` needed.
 
-**Unit-testing macros**: reference the `HowMacro.Testing` package from your test project; see [DESIGN.md](https://github.com/Howchilll/CSMacro/blob/main/DESIGN.md#test-helpers-for-macro-authors).
+**Unit-testing macros**: reference the `HowMacro.Testing` package from your test project; see [DESIGN.md](https://github.com/Howchilll/HowMacro/blob/main/DESIGN.md#test-helpers-for-macro-authors).
 
 **Requirements**: the build machine needs the .NET 10 SDK or later (the expansion tool runs on .NET 10), and the project must be an SDK-style MSBuild project.
 The target framework of the project being expanded can be anything.
@@ -122,7 +122,7 @@ The packages are written to `artifacts/packages/`. Put a `nuget.config` next to 
 ```xml
 <configuration>
   <packageSources>
-    <add key="howmacro-local" value="/path/to/CSMacro/artifacts/packages" />
+    <add key="howmacro-local" value="/path/to/HowMacro/artifacts/packages" />
   </packageSources>
 </configuration>
 ```
@@ -152,7 +152,7 @@ dotnet build samples/Demo.App -p:HowMacroDumpFiles=Player.cs -p:HowMacroDumpMacr
 | `src/HowMacro.Cli` | The expansion tool MSBuild calls during the build |
 | `src/HowMacro.Testing` | Testing tools for macro authors (NuGet package `HowMacro.Testing`) |
 | `src/HowMacro.Unity.Bridge` | Unity integration: expands and recompiles inside Unity's ILPostProcessor runner |
-| `unity/` | Unity-side ILPostProcessor and setup notes ([unity/README.md](https://github.com/Howchilll/CSMacro/blob/main/unity/README.md)) |
+| `unity/` | Unity-side ILPostProcessor and setup notes ([unity/README.md](https://github.com/Howchilll/HowMacro/blob/main/unity/README.md)) |
 | `pack/HowMacro` | Packaging project: produces the `HowMacro` NuGet package |
 | `build/HowMacro.targets` | MSBuild integration |
 | `examples/Snake` | Integration case study: terminal Snake, a standalone project consuming the NuGet package, macros written in-project (not in the main solution) |
@@ -160,9 +160,9 @@ dotnet build samples/Demo.App -p:HowMacroDumpFiles=Player.cs -p:HowMacroDumpMacr
 | `samples/Demo.*` | Basic samples for each feature |
 | `tests/` | Unit tests for the sample macros |
 
-The full design, rules, API and diagnostic codes are in [DESIGN.md](https://github.com/Howchilll/CSMacro/blob/main/DESIGN.md).
+The full design, rules, API and diagnostic codes are in [DESIGN.md](https://github.com/Howchilll/HowMacro/blob/main/DESIGN.md).
 
 ## Status
 
 Prototype: plain .NET works (console, ASP.NET Core). Unity 2022.3+ works experimentally through an ILPostProcessor
-(editor and player builds); there is no UPM package yet, see [unity/README.md](https://github.com/Howchilll/CSMacro/blob/main/unity/README.md).
+(editor and player builds), installed as the UPM package `com.howmacro.unity`; see [unity/README.md](https://github.com/Howchilll/HowMacro/blob/main/unity/README.md).

@@ -6,10 +6,10 @@
   "description": "Compile-time macros for C# in Unity. A macro is ordinary C#: the IDE sees a normal method call or attribute; at compile time an ILPostProcessor expands it, and only the expanded code reaches the player.",
   "keywords": ["macro", "metaprogramming", "codegen", "roslyn", "ilpostprocessor"],
   "license": "MIT",
-  "documentationUrl": "https://github.com/Howchilll/CSMacro/blob/main/unity/README.md",
+  "documentationUrl": "https://github.com/Howchilll/HowMacro/blob/main/unity/README.md",
   "author": {
     "name": "HowMacro contributors",
-    "url": "https://github.com/Howchilll/CSMacro"
+    "url": "https://github.com/Howchilll/HowMacro"
   },
   "samples": [
     {
