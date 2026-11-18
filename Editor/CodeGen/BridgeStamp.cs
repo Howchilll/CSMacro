@@ -6,6 +6,6 @@ namespace HowMacro.Unity.CodeGen
     /// </summary>
     static class BridgeStamp
     {
-        public const string Value = "a04b97614cebc3f8";
+        public const string Value = "bf17b8a12dec8501";
     }
 }
